@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>자취생 키우기 - 앱 목업</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --surface-0: #EDEBE4; --surface-1: #F5F4EF; --surface-2: #FFFFFF;
+    --border: rgba(0,0,0,0.10); --border-strong: rgba(0,0,0,0.22);
+    --text-primary: #1A1A18; --text-secondary: #5F5E5A; --text-muted: #888780;
+    --text-accent: #185FA5; --bg-accent: #E6F1FB; --fill-accent: #378ADD; --on-accent: #FFFFFF;
+    --text-success: #3B6D11; --text-danger: #A32D2D;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--surface-0); font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif; color:var(--text-primary); padding:40px 16px; }
+  button { font-family: inherit; } input { font-family: inherit; }
+  .phone { width:300px; background:var(--surface-1); border-radius:28px; padding:10px; border:0.5px solid var(--border); box-shadow:0 20px 50px rgba(0,0,0,0.15); }
+  .screen { background:var(--surface-2); border-radius:20px; overflow:hidden; border:0.5px solid var(--border); }
+  .statusbar { display:flex; justify-content:space-between; align-items:center; padding:8px 16px 4px; font-size:11px; font-weight:500; }
+  .header { padding:8px 16px 12px; border-bottom:0.5px solid var(--border); }
+  .header span { font-size:17px; font-weight:500; }
+  .content { padding:16px; min-height:450px; display:flex; flex-direction:column; gap:12px; }
+  .tabbar { display:flex; border-top:0.5px solid var(--border); padding:8px 4px 12px; }
+  .tab-btn { flex:1; background:transparent; border:none; display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px; cursor:pointer; color:var(--text-muted); }
+  .tab-btn i { font-size:20px; } .tab-btn span { font-size:10px; }
+  .floor-item { position:absolute; width:44px; height:44px; margin-left:-22px; margin-top:-22px; display:flex; align-items:center; justify-content:center; touch-action:none; cursor:grab; }
+  .floor-item .furniture-shape { transition:transform .15s ease, opacity .3s ease, scale .3s cubic-bezier(.34,1.56,.64,1); }
+  .floor-item.entering .furniture-shape { opacity:0; scale:.3; }
+  .floor-item.selected .furniture-shape { outline:2px solid var(--text-accent); outline-offset:3px; border-radius:8px; }
+  .item-controls { position:absolute; top:-26px; left:50%; transform:translateX(-50%); display:flex; gap:4px; z-index:5; }
+  .item-controls button { width:22px; height:22px; border-radius:6px; border:0.5px solid var(--border); background:var(--surface-2); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .cal-wd { font-size:10px; color:var(--text-muted); text-align:center; padding:2px 0; }
+  .cal-day { position:relative; aspect-ratio:1; border:none; background:var(--surface-1); border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:11px; color:var(--text-primary); }
+  .cal-day.today { box-shadow:inset 0 0 0 1.5px var(--text-accent); }
+  .cal-day.spend { background:var(--bg-accent); }
+  .cal-day.picked { outline:2px solid var(--text-accent); outline-offset:1px; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="screen">
+    <div class="statusbar"><span>9:41</span><div style="display:flex;gap:4px;align-items:center"><i class="ti ti-wifi"></i><i class="ti ti-battery-4" style="font-size:15px"></i></div></div>
+    <div class="header"><span id="screen-title">홈</span></div>
+    <div id="screen-content" class="content"></div>
+    <div class="tabbar">
+      <button class="tab-btn" data-tab="home"><i class="ti ti-home"></i><span>홈</span></button>
+      <button class="tab-btn" data-tab="budget"><i class="ti ti-wallet"></i><span>가계부</span></button>
+      <button class="tab-btn" data-tab="room"><i class="ti ti-cube"></i><span>3D 배치</span></button>
+      <button class="tab-btn" data-tab="community"><i class="ti ti-users"></i><span>커뮤니티</span></button>
+      <button class="tab-btn" data-tab="mypage"><i class="ti ti-user"></i><span>마이</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var titles = { home:'홈', budget:'가계부', room:'3D 가구 배치', community:'커뮤니티', mypage:'마이페이지' };
+  var idCounter = 2;
+  var postCounter = 2;
+  var selectedId = null;
+
+  var furnitureSVG = {
+    sofa: '<svg viewBox="0 0 44 30" width="42" height="29"><rect x="2" y="6" width="40" height="20" rx="6" fill="var(--surface-2)" stroke="var(--border-strong)" stroke-width="1.2"/><rect x="2" y="2" width="40" height="8" rx="4" fill="var(--bg-accent)" stroke="var(--border-strong)" stroke-width="1"/><rect x="5" y="10" width="15" height="14" rx="3" fill="var(--surface-1)"/><rect x="24" y="10" width="15" height="14" rx="3" fill="var(--surface-1)"/></svg>',
+    bed: '<svg viewBox="0 0 34 46" width="28" height="38"><rect x="1" y="1" width="32" height="44" rx="4" fill="var(--surface-2)" stroke="var(--border-strong)" stroke-width="1.2"/><rect x="4" y="4" width="26" height="10" rx="3" fill="var(--bg-accent)"/><line x1="4" y1="30" x2="30" y2="30" stroke="var(--border)" stroke-width="1"/></svg>',
+    armchair: '<svg viewBox="0 0 30 30" width="27" height="27"><rect x="4" y="8" width="22" height="18" rx="5" fill="var(--surface-2)" stroke="var(--border-strong)" stroke-width="1.2"/><rect x="4" y="2" width="22" height="8" rx="4" fill="var(--bg-accent)"/><rect x="1" y="9" width="5" height="14" rx="2" fill="var(--surface-1)"/><rect x="24" y="9" width="5" height="14" rx="2" fill="var(--surface-1)"/></svg>',
+    table: '<svg viewBox="0 0 34 34" width="29" height="29"><circle cx="17" cy="17" r="15" fill="var(--surface-2)" stroke="var(--border-strong)" stroke-width="1.2"/><circle cx="17" cy="17" r="10" fill="none" stroke="var(--border)" stroke-width="1"/></svg>'
+  };
+
+  var state = {
+    room: { rotation: -18, placed: [ {id:1,type:'sofa',left:28,top:30,rot:0}, {id:2,type:'bed',left:68,top:66,rot:0} ] },
+    budget: { expenses: {2:8000,5:32000,9:15000,14:52000,18:9000,23:41000,27:6000}, picked: null },
+    community: {
+      posts: [
+        { id:1, author:'정우', placed:[{type:'sofa',left:30,top:35,rot:0},{type:'table',left:65,top:60,rot:0},{type:'armchair',left:65,top:30,rot:20}], rot:-15, liked:false, likes:12, comments:[{author:'준영',text:'소파 위치 완전 좋다'}], commentsOpen:false },
+        { id:2, author:'준영', placed:[{type:'bed',left:35,top:40,rot:0},{type:'table',left:70,top:70,rot:0}], rot:-15, liked:true, likes:8, comments:[], commentsOpen:false }
+      ]
+    }
+  };
+
+  function clamp(v,min,max){ return Math.min(max,Math.max(min,v)); }
+  function findItem(id){ return state.room.placed.find(function(p){ return p.id===id; }); }
+  function spawnPos(count){ var cols=[30,50,70]; var rows=[35,65]; return [cols[count%3], rows[Math.floor(count/3)%2]]; }
+  function fmtWon(n){ return '₩' + n.toLocaleString('ko-KR'); }
+
+  var staticContent = {
+    home: function(){
+      return '\
+      <div style="font-size:13px;color:var(--text-secondary)">안녕하세요, 현곤님</div>\
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">\
+        <div style="background:var(--surface-1);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px"><i class="ti ti-wallet" style="font-size:20px;color:var(--text-accent)"></i><span style="font-size:11px;color:var(--text-secondary)">이번 달 지출</span><span style="font-size:15px;font-weight:500">₩482,000</span></div>\
+        <div style="background:var(--surface-1);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px"><i class="ti ti-pig-money" style="font-size:20px;color:var(--text-accent)"></i><span style="font-size:11px;color:var(--text-secondary)">이번 달 절약</span><span style="font-size:15px;font-weight:500">₩58,000</span><span style="font-size:10px;color:var(--text-success);display:flex;align-items:center;gap:2px"><i class="ti ti-trending-down" style="font-size:12px"></i>지난달보다 11%</span></div>\
+      </div>\
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">최근 활동</div>\
+      <div style="display:flex;flex-direction:column;gap:8px">\
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px"><i class="ti ti-pig-money" style="font-size:14px;color:var(--text-success)"></i>이번 달 58,000원 절약했어요</div>\
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px"><i class="ti ti-receipt" style="font-size:14px;color:var(--text-accent)"></i>식비 12,000원 지출 등록</div>\
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px"><i class="ti ti-heart" style="font-size:14px;color:var(--text-danger)"></i>내 3D 배치에 좋아요 3개</div>\
+      </div>';
+    },
+    mypage: function(){
+      return '\
+      <div style="display:flex;align-items:center;gap:12px"><div style="width:48px;height:48px;border-radius:50%;background:var(--bg-accent);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;color:var(--text-accent)">현</div><div><div style="font-size:14px;font-weight:500">이현곤</div><div style="font-size:11px;color:var(--text-secondary)">hyungon@example.com</div></div></div>\
+      <div style="display:flex;flex-direction:column;margin-top:8px">\
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid var(--border);font-size:13px"><span>프로필 수정</span><i class="ti ti-chevron-right" style="font-size:14px;color:var(--text-muted)"></i></div>\
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid var(--border);font-size:13px"><span>알림 설정</span><i class="ti ti-chevron-right" style="font-size:14px;color:var(--text-muted)"></i></div>\
+        <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:13px;color:var(--text-danger)"><span>로그아웃</span></div>\
+      </div>';
+    }
+  };
+
+  function renderBudget(){
+    var now = new Date();
+    var year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
+    var firstDay = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month+1, 0).getDate();
+    var wdLabels = ['일','월','화','수','목','금','토'];
+    var header = wdLabels.map(function(l){ return '<div class="cal-wd">'+l+'</div>'; }).join('');
+    var cells = '';
+    for(var i=0;i<firstDay;i++){ cells += '<div></div>'; }
+    for(var d=1; d<=daysInMonth; d++){
+      var hasSpend = state.budget.expenses[d] !== undefined;
+      var isToday = d===today;
+      var isPicked = d===state.budget.picked;
+      cells += '<button class="cal-day'+(hasSpend?' spend':'')+(isToday?' today':'')+(isPicked?' picked':'')+'" data-day="'+d+'">'+d+'</button>';
+    }
+    var detail = '지출 내역을 보려면 날짜를 눌러보세요';
+    if(state.budget.picked){
+      var amt = state.budget.expenses[state.budget.picked];
+      detail = amt ? (month+1)+'월 '+state.budget.picked+'일 · '+fmtWon(amt)+' 지출' : (month+1)+'월 '+state.budget.picked+'일 · 지출 내역 없음';
+    }
+    return '\
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12px;color:var(--text-secondary)">'+(month+1)+'월 지출</span><span style="font-size:11px;color:var(--text-accent)">전체보기</span></div>\
+      <div style="font-size:22px;font-weight:500">₩482,000</div>\
+      <div style="display:flex;flex-direction:column;gap:10px">\
+        <div style="display:flex;justify-content:space-between"><span style="font-size:12px"><i class="ti ti-tools-kitchen-2" style="font-size:15px;color:var(--text-accent);margin-right:6px"></i>식비</span><span style="font-size:12px;font-weight:500">₩210,000</span></div>\
+        <div style="display:flex;justify-content:space-between"><span style="font-size:12px"><i class="ti ti-building" style="font-size:15px;color:var(--text-accent);margin-right:6px"></i>월세</span><span style="font-size:12px;font-weight:500">₩200,000</span></div>\
+        <div style="display:flex;justify-content:space-between"><span style="font-size:12px"><i class="ti ti-bolt" style="font-size:15px;color:var(--text-accent);margin-right:6px"></i>공과금</span><span style="font-size:12px;font-weight:500">₩72,000</span></div>\
+      </div>\
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">날짜별 지출</div>\
+      <div class="cal-grid">'+header+'</div>\
+      <div class="cal-grid" id="budget-cal-days">'+cells+'</div>\
+      <div style="font-size:11px;color:var(--text-accent);background:var(--bg-accent);border-radius:8px;padding:8px 10px" id="budget-day-detail">'+detail+'</div>\
+      <button style="align-self:flex-end;width:40px;height:40px;border-radius:50%;background:var(--fill-accent);border:none;display:flex;align-items:center;justify-content:center;margin-top:4px"><i class="ti ti-plus" style="font-size:18px;color:var(--on-accent)"></i></button>';
+  }
+
+  function initBudgetEvents(){
+    document.querySelectorAll('#budget-cal-days .cal-day').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var d = parseInt(btn.getAttribute('data-day'), 10);
+        state.budget.picked = d;
+        document.querySelectorAll('#budget-cal-days .cal-day').forEach(function(b){ b.classList.remove('picked'); });
+        btn.classList.add('picked');
+        var now = new Date();
+        var amt = state.budget.expenses[d];
+        document.getElementById('budget-day-detail').textContent = amt ? (now.getMonth()+1)+'월 '+d+'일 · '+fmtWon(amt)+' 지출' : (now.getMonth()+1)+'월 '+d+'일 · 지출 내역 없음';
+      });
+    });
+  }
+
+  function itemControlsHTML(id){
+    return '<div class="item-controls"><button class="rotate-item" data-id="'+id+'" aria-label="회전"><i class="ti ti-rotate-clockwise" style="font-size:12px"></i></button><button class="delete-item" data-id="'+id+'" aria-label="삭제"><i class="ti ti-x" style="font-size:12px"></i></button></div>';
+  }
+  function floorItemHTML(item){
+    var selected = item.id === selectedId;
+    return '<div class="floor-item'+(selected?' selected':'')+'" data-id="'+item.id+'" style="left:'+item.left+'%;top:'+item.top+'%">'+
+      (selected ? itemControlsHTML(item.id) : '') +
+      '<div class="furniture-shape" style="transform:rotate('+item.rot+'deg)">'+furnitureSVG[item.type]+'</div>'+
+    '</div>';
+  }
+  function renderFloorItems(){
+    var el = document.querySelector('.floor-items');
+    if(!el) return;
+    el.innerHTML = state.room.placed.map(floorItemHTML).join('');
+  }
+
+  function renderRoom(){
+    return '\
+      <div class="room-wrap" style="position:relative;height:220px;border-radius:12px;overflow:hidden;background:var(--surface-1);perspective:900px;touch-action:none;cursor:grab">\
+        <div class="room-3d" style="position:absolute;inset:12%;transform-style:preserve-3d;transform:rotateX(55deg) rotateZ('+state.room.rotation+'deg)">\
+          <div style="position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:20% 20%;background-color:var(--surface-2);border:0.5px solid var(--border);border-radius:6px"></div>\
+          <div class="floor-items" style="position:absolute;inset:0">'+state.room.placed.map(floorItemHTML).join('')+'</div>\
+        </div>\
+        <div style="position:absolute;top:8px;right:8px;display:flex;gap:6px;z-index:2">\
+          <button class="rotate-btn" data-dir="-1" aria-label="왼쪽으로 회전" style="width:26px;height:26px;background:var(--surface-2);border:0.5px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer"><i class="ti ti-chevron-left" style="font-size:14px"></i></button>\
+          <button class="rotate-btn" data-dir="1" aria-label="오른쪽으로 회전" style="width:26px;height:26px;background:var(--surface-2);border:0.5px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer"><i class="ti ti-chevron-right" style="font-size:14px"></i></button>\
+        </div>\
+        <div style="position:absolute;bottom:8px;left:8px;display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted);z-index:2"><i class="ti ti-hand-move" style="font-size:13px"></i>드래그해서 화면 회전</div>\
+      </div>\
+      <div style="display:flex;justify-content:space-between;align-items:center">\
+        <span style="font-size:12px;color:var(--text-secondary)">가구 라이브러리</span>\
+        <button class="reset-room" style="background:transparent;border:none;color:var(--text-muted);font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer"><i class="ti ti-refresh" style="font-size:13px"></i>초기화</button>\
+      </div>\
+      <div style="display:flex;gap:8px">\
+        <button class="tray-item" data-type="sofa" style="width:44px;height:44px;background:var(--surface-1);border:none;border-radius:10px;cursor:pointer"><i class="ti ti-sofa" style="font-size:19px;color:var(--text-accent)"></i></button>\
+        <button class="tray-item" data-type="bed" style="width:44px;height:44px;background:var(--surface-1);border:none;border-radius:10px;cursor:pointer"><i class="ti ti-bed" style="font-size:19px;color:var(--text-accent)"></i></button>\
+        <button class="tray-item" data-type="armchair" style="width:44px;height:44px;background:var(--surface-1);border:none;border-radius:10px;cursor:pointer"><i class="ti ti-armchair" style="font-size:19px;color:var(--text-accent)"></i></button>\
+        <button class="tray-item" data-type="table" style="width:44px;height:44px;background:var(--surface-1);border:none;border-radius:10px;cursor:pointer"><i class="ti ti-table" style="font-size:19px;color:var(--text-accent)"></i></button>\
+      </div>\
+      <div style="font-size:10px;color:var(--text-muted)">가구를 드래그해서 옮기고, 탭하면 회전·삭제 버튼이 나와요</div>\
+      <div style="display:flex;gap:8px">\
+        <button style="flex:1;background:var(--surface-1);color:var(--text-primary);border:0.5px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-weight:500">배치안 저장하기</button>\
+        <button id="share-community-btn" style="flex:1;background:var(--fill-accent);color:var(--on-accent);border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px"><i class="ti ti-share" style="font-size:14px"></i>커뮤니티에 공유</button>\
+      </div>';
+  }
+
+  function selectItem(id){ selectedId = (selectedId===id ? null : id); renderFloorItems(); }
+  function rotateItem(id){ var item=findItem(id); if(item){ item.rot=(item.rot+45)%360; renderFloorItems(); } }
+  function deleteItem(id){ state.room.placed = state.room.placed.filter(function(p){ return p.id!==id; }); if(selectedId===id) selectedId=null; renderFloorItems(); }
+
+  function addFurniture(type){
+    if(state.room.placed.length >= 8) return;
+    idCounter++;
+    var pos = spawnPos(state.room.placed.length);
+    state.room.placed.push({ id:idCounter, type:type, left:pos[0], top:pos[1], rot:0 });
+    selectedId = idCounter;
+    renderFloorItems();
+    var el = document.querySelector('.floor-item[data-id="'+idCounter+'"]');
+    if(el){ el.classList.add('entering'); requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.classList.remove('entering'); }); }); }
+  }
+
+  function startDragItem(id, itemEl, e, wrapEl){
+    var item = findItem(id);
+    var wrapRect = wrapEl.getBoundingClientRect();
+    var startX = e.clientX, startY = e.clientY, startLeft = item.left, startTop = item.top, moved = false;
+    try{ itemEl.setPointerCapture(e.pointerId); }catch(err){}
+    itemEl.style.cursor = 'grabbing';
+    function onMove(ev){
+      var dx = ev.clientX - startX, dy = ev.clientY - startY;
+      if(Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+      item.left = clamp(startLeft + dx / wrapRect.width * 130, 6, 94);
+      item.top = clamp(startTop + dy / wrapRect.height * 130, 6, 94);
+      itemEl.style.left = item.left + '%';
+      itemEl.style.top = item.top + '%';
+    }
+    function onUp(){
+      itemEl.removeEventListener('pointermove', onMove);
+      itemEl.removeEventListener('pointerup', onUp);
+      itemEl.style.cursor = 'grab';
+      if(!moved){ selectItem(id); }
+    }
+    itemEl.addEventListener('pointermove', onMove);
+    itemEl.addEventListener('pointerup', onUp);
+  }
+
+  function shareToCommunity(){
+    postCounter++;
+    state.community.posts.unshift({
+      id: postCounter, author:'나 (현곤)',
+      placed: state.room.placed.map(function(p){ return {type:p.type,left:p.left,top:p.top,rot:p.rot}; }),
+      rot:-15, liked:false, likes:0, comments:[], commentsOpen:false
+    });
+    var btn = document.getElementById('share-community-btn');
+    if(btn){
+      var original = btn.innerHTML;
+      btn.innerHTML = '<i class="ti ti-check" style="font-size:14px"></i>공유완료';
+      setTimeout(function(){ if(document.getElementById('share-community-btn')) btn.innerHTML = original; }, 1200);
+    }
+  }
+
+  function initRoomEvents(){
+    var wrap = document.querySelector('.room-wrap');
+    var room3d = document.querySelector('.room-3d');
+    var floorItemsEl = document.querySelector('.floor-items');
+    if(!wrap || !room3d || !floorItemsEl) return;
+
+    var dragging = false, startX = 0, startRot = state.room.rotation;
+    wrap.addEventListener('pointerdown', function(e){
+      if(e.target.closest('.floor-item')) return;
+      dragging = true; startX = e.clientX; startRot = state.room.rotation; wrap.style.cursor = 'grabbing';
+    });
+    wrap.addEventListener('pointermove', function(e){
+      if(!dragging) return;
+      state.room.rotation = startRot + (e.clientX - startX) * 0.5;
+      room3d.style.transform = 'rotateX(55deg) rotateZ(' + state.room.rotation + 'deg)';
+    });
+    function endDrag(){ dragging = false; wrap.style.cursor = 'grab'; }
+    wrap.addEventListener('pointerup', endDrag);
+    wrap.addEventListener('pointerleave', endDrag);
+    wrap.addEventListener('click', function(e){ if(!e.target.closest('.floor-item') && selectedId !== null){ selectedId = null; renderFloorItems(); } });
+
+    document.querySelectorAll('.rotate-btn').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        state.room.rotation += 40 * parseInt(btn.getAttribute('data-dir'), 10);
+        room3d.style.transition = 'transform .4s ease';
+        room3d.style.transform = 'rotateX(55deg) rotateZ(' + state.room.rotation + 'deg)';
+        setTimeout(function(){ room3d.style.transition = ''; }, 400);
+      });
+    });
+    document.querySelectorAll('.tray-item').forEach(function(btn){
+      btn.addEventListener('click', function(){ addFurniture(btn.getAttribute('data-type')); });
+    });
+    document.querySelector('.reset-room').addEventListener('click', function(){
+      state.room.placed = []; selectedId = null; renderFloorItems();
+    });
+    document.getElementById('share-community-btn').addEventListener('click', shareToCommunity);
+
+    floorItemsEl.addEventListener('pointerdown', function(e){
+      var itemEl = e.target.closest('.floor-item');
+      if(!itemEl) return;
+      e.stopPropagation();
+      if(e.target.closest('.item-controls')) return;
+      startDragItem(parseInt(itemEl.getAttribute('data-id'), 10), itemEl, e, wrap);
+    });
+    floorItemsEl.addEventListener('click', function(e){
+      var r = e.target.closest('.rotate-item');
+      var d = e.target.closest('.delete-item');
+      if(r){ e.stopPropagation(); rotateItem(parseInt(r.getAttribute('data-id'), 10)); }
+      else if(d){ e.stopPropagation(); deleteItem(parseInt(d.getAttribute('data-id'), 10)); }
+    });
+  }
+
+  function thumbHTML(post){
+    var items = post.placed.map(function(p){
+      return '<div style="position:absolute;left:'+p.left+'%;top:'+p.top+'%;transform:translate(-50%,-50%) scale(.6) rotate('+p.rot+'deg)">'+furnitureSVG[p.type]+'</div>';
+    }).join('');
+    return '\
+      <div style="position:relative;height:100px;border-radius:10px;overflow:hidden;background:var(--surface-1)">\
+        <div style="position:absolute;inset:14%;transform-style:preserve-3d;transform:rotateX(55deg) rotateZ('+post.rot+'deg)">\
+          <div style="position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:20% 20%;background-color:var(--surface-2);border:0.5px solid var(--border);border-radius:6px"></div>\
+          <div style="position:absolute;inset:0">'+items+'</div>\
+        </div>\
+      </div>';
+  }
+
+  function postHTML(post){
+    var initial = post.author.charAt(0);
+    var commentsHTML = post.comments.map(function(c){
+      return '<div style="font-size:11px;color:var(--text-secondary)"><span style="color:var(--text-primary);font-weight:500">'+c.author+'</span> '+c.text+'</div>';
+    }).join('');
+    return '\
+      <div style="background:var(--surface-1);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px">\
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:26px;height:26px;border-radius:50%;background:var(--bg-accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:var(--text-accent)">'+initial+'</div><span style="font-size:12px;font-weight:500">'+post.author+'님의 방</span></div>\
+        '+thumbHTML(post)+'\
+        <div style="display:flex;align-items:center;gap:16px">\
+          <button class="like-btn" data-id="'+post.id+'" style="display:flex;align-items:center;gap:4px;background:transparent;border:none;cursor:pointer;padding:0"><i class="ti ti-heart" style="font-size:16px;color:'+(post.liked?'var(--text-danger)':'var(--text-muted)')+'"></i><span style="font-size:11px;color:var(--text-secondary)">'+post.likes+'</span></button>\
+          <button class="comment-toggle" data-id="'+post.id+'" style="display:flex;align-items:center;gap:4px;background:transparent;border:none;cursor:pointer;padding:0"><i class="ti ti-message-circle" style="font-size:16px;color:var(--text-muted)"></i><span style="font-size:11px;color:var(--text-secondary)">'+post.comments.length+'</span></button>\
+        </div>\
+        '+(post.commentsOpen ? '\
+        <div style="display:flex;flex-direction:column;gap:4px;border-top:0.5px solid var(--border);padding-top:8px">\
+          '+(commentsHTML || '<div style="font-size:11px;color:var(--text-muted)">아직 댓글이 없어요</div>')+'\
+          <div style="display:flex;gap:6px;margin-top:4px">\
+            <input type="text" class="comment-input" data-id="'+post.id+'" placeholder="댓글 달기" style="flex:1;font-size:11px;height:30px;padding:0 8px;border-radius:8px;border:0.5px solid var(--border);background:var(--surface-2)"/>\
+            <button class="comment-send" data-id="'+post.id+'" style="width:30px;height:30px;border-radius:8px;border:none;background:var(--fill-accent);display:flex;align-items:center;justify-content:center;cursor:pointer"><i class="ti ti-send" style="font-size:13px;color:var(--on-accent)"></i></button>\
+          </div>\
+        </div>' : '')+'\
+      </div>';
+  }
+
+  function renderCommunity(){
+    return '<div style="display:flex;flex-direction:column;gap:12px">' + state.community.posts.map(postHTML).join('') + '</div>';
+  }
+
+  function findPost(id){ return state.community.posts.find(function(p){ return p.id===id; }); }
+
+  function initCommunityEvents(){
+    var container = document.getElementById('screen-content');
+    container.querySelectorAll('.like-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var post = findPost(parseInt(btn.getAttribute('data-id'), 10));
+        post.liked = !post.liked;
+        post.likes += post.liked ? 1 : -1;
+        container.innerHTML = renderCommunity();
+        initCommunityEvents();
+      });
+    });
+    container.querySelectorAll('.comment-toggle').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var post = findPost(parseInt(btn.getAttribute('data-id'), 10));
+        post.commentsOpen = !post.commentsOpen;
+        container.innerHTML = renderCommunity();
+        initCommunityEvents();
+      });
+    });
+    container.querySelectorAll('.comment-send').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = parseInt(btn.getAttribute('data-id'), 10);
+        var input = container.querySelector('.comment-input[data-id="'+id+'"]');
+        var text = input.value.trim();
+        if(!text) return;
+        findPost(id).comments.push({ author:'나', text:text });
+        container.innerHTML = renderCommunity();
+        initCommunityEvents();
+      });
+    });
+    container.querySelectorAll('.comment-input').forEach(function(input){
+      input.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ container.querySelector('.comment-send[data-id="'+input.getAttribute('data-id')+'"]').click(); }
+      });
+    });
+  }
+
+  var buttons = document.querySelectorAll('.tab-btn');
+  var titleEl = document.getElementById('screen-title');
+  var contentEl = document.getElementById('screen-content');
+
+  function setActive(tab){
+    buttons.forEach(function(b){
+      var isActive = b.getAttribute('data-tab') === tab;
+      b.style.color = isActive ? 'var(--text-accent)' : 'var(--text-muted)';
+      b.querySelector('span').style.fontWeight = isActive ? '500' : '400';
+    });
+    titleEl.textContent = titles[tab];
+    if(tab === 'room'){ contentEl.innerHTML = renderRoom(); initRoomEvents(); }
+    else if(tab === 'budget'){ contentEl.innerHTML = renderBudget(); initBudgetEvents(); }
+    else if(tab === 'community'){ contentEl.innerHTML = renderCommunity(); initCommunityEvents(); }
+    else { contentEl.innerHTML = staticContent[tab](); }
+  }
+
+  buttons.forEach(function(b){ b.addEventListener('click', function(){ setActive(b.getAttribute('data-tab')); }); });
+
+  setActive('home');
+})();
+</script>
+
+</body>
+</html>
