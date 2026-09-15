@@ -5,12 +5,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 
 const TAB_ITEMS = [
-  { name: 'index', href: '/', label: '홈', icon: 'home-outline' as const },
-  { name: 'budget', href: '/budget', label: '가계부', icon: 'wallet-outline' as const },
-  { name: 'room', href: '/room', label: '3D 배치', icon: 'cube-outline' as const },
-  { name: 'community', href: '/community', label: '커뮤니티', icon: 'people-outline' as const },
-  { name: 'mypage', href: '/mypage', label: '마이', icon: 'person-outline' as const },
-];
+  { name: 'index', href: '/', label: '홈', icon: 'home-outline' },
+  { name: 'budget', href: '/budget', label: '가계부', icon: 'wallet-outline' },
+  { name: 'room', href: '/room', label: '3D 배치', icon: 'cube-outline' },
+  { name: 'community', href: '/community', label: '커뮤니티', icon: 'people-outline' },
+  { name: 'mypage', href: '/mypage', label: '마이', icon: 'person-outline' },
+] as const;
 
 export default function AppTabs() {
   return (

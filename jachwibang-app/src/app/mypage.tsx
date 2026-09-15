@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/state/auth-state';
 
 const MENU = [
   { label: '프로필 수정', icon: 'person-outline' },
@@ -12,6 +13,16 @@ const MENU = [
 
 export default function MyPageScreen() {
   const theme = useTheme();
+  const { session, signOut } = useAuth();
+  const email = session?.user.email ?? '';
+  const initial = email.charAt(0).toUpperCase() || '?';
+
+  function handleSignOut() {
+    Alert.alert('로그아웃', '로그아웃 하시겠어요?', [
+      { text: '취소', style: 'cancel' },
+      { text: '로그아웃', style: 'destructive', onPress: signOut },
+    ]);
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top']}>
@@ -20,11 +31,11 @@ export default function MyPageScreen() {
 
         <View style={styles.profileRow}>
           <View style={[styles.avatar, { backgroundColor: theme.accentSoft }]}>
-            <Text style={[styles.avatarText, { color: theme.accent }]}>현</Text>
+            <Text style={[styles.avatarText, { color: theme.accent }]}>{initial}</Text>
           </View>
           <View>
-            <Text style={[styles.name, { color: theme.text }]}>이현곤</Text>
-            <Text style={[styles.email, { color: theme.textSecondary }]}>hyungon@example.com</Text>
+            <Text style={[styles.name, { color: theme.text }]}>{email || '알 수 없음'}</Text>
+            <Text style={[styles.email, { color: theme.textSecondary }]}>자취방 키우기 회원</Text>
           </View>
         </View>
 
@@ -41,9 +52,7 @@ export default function MyPageScreen() {
               <Ionicons name="chevron-forward" size={14} color={theme.textSecondary} />
             </Pressable>
           ))}
-          <Pressable
-            style={styles.menuRow}
-            onPress={() => Alert.alert('로그아웃', '로그아웃 기능은 준비 중이에요.')}>
+          <Pressable style={styles.menuRow} onPress={handleSignOut}>
             <Text style={[styles.menuText, { color: theme.danger }]}>로그아웃</Text>
           </Pressable>
         </View>

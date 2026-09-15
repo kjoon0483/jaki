@@ -5,25 +5,33 @@ import { Animated, StyleSheet } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
-const HOLD_MS = 700;
-const FADE_MS = 450;
+const FADE_IN_MS = 900;
+const HOLD_MS = 2000;
+const FADE_OUT_MS = 600;
 
 /** Full-brand splash (icon + wordmark) shown for a moment on app launch. */
 export function AppSplash() {
   const [visible, setVisible] = useState(true);
-  const opacity = useRef(new Animated.Value(1)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => {});
+
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: FADE_IN_MS,
+      useNativeDriver: true,
+    }).start();
+
     const timer = setTimeout(() => {
       Animated.timing(opacity, {
         toValue: 0,
-        duration: FADE_MS,
+        duration: FADE_OUT_MS,
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (finished) setVisible(false);
       });
-    }, HOLD_MS);
+    }, FADE_IN_MS + HOLD_MS);
     return () => clearTimeout(timer);
   }, [opacity]);
 
@@ -33,7 +41,7 @@ export function AppSplash() {
     <Animated.View style={[styles.overlay, { opacity }]}>
       <Image
         style={styles.logo}
-        source={require('@/assets/images/splash-logo.jpg')}
+        source={require('@/assets/images/splash-logo.png')}
         contentFit="contain"
       />
     </Animated.View>
@@ -49,7 +57,8 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   logo: {
-    width: 240,
-    height: 240,
+    width: '80%',
+    maxWidth: 380,
+    aspectRatio: 2035 / 1792,
   },
 });
