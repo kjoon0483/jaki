@@ -3,8 +3,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
 import { AppSplash } from '@/components/app-splash';
-import AppTabs from '@/components/app-tabs';
-import { AuthScreen } from '@/components/auth-screen';
+import AppTabs from '@/components/navigation/app-tabs';
+import { AuthScreen } from '@/components/auth/auth-screen';
 import { AppStateProvider } from '@/state/app-state';
 import { AuthProvider, useAuth } from '@/state/auth-state';
 
