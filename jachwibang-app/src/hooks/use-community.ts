@@ -1,6 +1,14 @@
 import { useCallback, useState } from 'react';
 
-import { AttachedRoom, communityError as friendlyError, insertPost, POST_COLUMNS, PostRow } from '@/lib/community';
+import {
+  AttachedRoom,
+  communityError as friendlyError,
+  insertPost,
+  isMissingRoomColumn,
+  LEGACY_POST_COLUMNS,
+  POST_COLUMNS,
+  PostRow,
+} from '@/lib/community';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-state';
 
@@ -21,7 +29,6 @@ export interface Post extends PostRow {
 
 const PAGE_SIZE = 50;
 
-
 /** Community feed state. Call `refresh()` to load (the screen does it whenever it comes into focus). */
 export function useCommunity() {
   const { session } = useAuth();
@@ -36,17 +43,19 @@ export function useCommunity() {
   const refresh = useCallback(async () => {
     if (!me) return;
     setLoading(true);
-    const { data: rows, error: postsError } = await supabase
-      .from('community_posts')
-      .select(POST_COLUMNS)
-      .order('created_at', { ascending: false })
-      .limit(PAGE_SIZE);
+    const fetchPosts = (columns: string) =>
+      supabase.from('community_posts').select(columns).order('created_at', { ascending: false }).limit(PAGE_SIZE);
+    let { data: rows, error: postsError } = await fetchPosts(POST_COLUMNS);
+    // If the room-sharing migration (003) isn't visible yet, still show the posts, just without rooms.
+    if (postsError && isMissingRoomColumn(postsError.message)) {
+      ({ data: rows, error: postsError } = await fetchPosts(LEGACY_POST_COLUMNS));
+    }
     if (postsError) {
       setError(friendlyError(postsError.message));
       setLoading(false);
       return;
     }
-    const postRows = (rows ?? []) as PostRow[];
+    const postRows = ((rows ?? []) as unknown as PostRow[]).map((p) => ({ ...p, room: p.room ?? null, room_name: p.room_name ?? null }));
     const ids = postRows.map((p) => p.id);
 
     const [commentsRes, likesRes] = ids.length

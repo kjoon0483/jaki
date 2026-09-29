@@ -15,7 +15,8 @@ const COLUMNS = 'id, name, data, updated_at';
 
 export function roomsError(message: string) {
   if (/relation .*rooms.* does not exist|could not find the table .*rooms/i.test(message)) {
-    return '내 방 저장소가 아직 없어요. Supabase SQL Editor에서 supabase/migrations/003_rooms.sql 을 실행해주세요.';
+    // Keep the raw message: "schema cache" means the table exists but the API hasn't reloaded yet.
+    return `내 방 저장소를 찾지 못했어요. Supabase SQL Editor에서 003_rooms.sql 을 실행했는지 확인하고, 이미 했다면 notify pgrst, 'reload schema'; 를 실행해주세요.\n(${message})`;
   }
   return message;
 }
