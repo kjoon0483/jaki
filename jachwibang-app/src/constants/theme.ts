@@ -8,31 +8,35 @@ import '@/global.css';
 import { Platform } from 'react-native';
 
 export const Colors = {
+  // 채도·대비 기준: 본문 글자는 배경 대비 4.5:1 이상(WCAG AA), 아이콘·강조색은 3:1 이상.
+  // 다크모드 강조색은 라이트보다 채도를 낮춰(≈50%) 어두운 배경에서 번져 보이지 않게 한다.
   light: {
     text: '#22281F',
-    textSecondary: '#6E6C61',
-    background: '#FAF8F3',
-    backgroundElement: '#F1EADD',
-    backgroundSelected: '#E6DCC6',
-    accent: '#33544A',
-    accentSoft: '#E4EBDF',
+    textSecondary: '#5F6356',
+    background: '#FAF7F1', // 크림 벽
+    backgroundElement: '#F2ECE1', // 밝은 우드 카드
+    backgroundSelected: '#E5DCCB',
+    accent: '#2F5446', // 짙은 초록 지붕
+    accentSoft: '#E1E9DA',
     onAccent: '#FFFFFF',
-    success: '#3B6D11',
-    danger: '#A3462D',
+    warm: '#B5673F', // 테라코타 화분: 강조·하이라이트 (아이콘·큰 글자용)
+    success: '#3F6B2A',
+    danger: '#A83A34',
     border: 'rgba(34,40,31,0.12)',
   },
   dark: {
-    text: '#F3F1E9',
-    textSecondary: '#B6B2A2',
-    background: '#171A15',
-    backgroundElement: '#232821',
-    backgroundSelected: '#2E352B',
-    accent: '#9CAE86',
-    accentSoft: '#2B3628',
-    onAccent: '#171A15',
-    success: '#8FBE5E',
-    danger: '#E38A6E',
-    border: 'rgba(243,241,233,0.12)',
+    text: '#F1EFE7',
+    textSecondary: '#B3B0A2',
+    background: '#161A16', // 불 끈 저녁의 자취방
+    backgroundElement: '#212621',
+    backgroundSelected: '#2C332B',
+    accent: '#9DB892',
+    accentSoft: '#28342A',
+    onAccent: '#141A14',
+    warm: '#D49A7A',
+    success: '#97BD7C',
+    danger: '#D4837A',
+    border: 'rgba(241,239,231,0.12)',
   },
 } as const;
 
@@ -40,7 +44,7 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 /** Fixed brand hues used for furniture/plant illustrations, independent of theme. */
 export const Brand = {
-  deepGreen: '#33544A',
+  deepGreen: '#2F5446',
   sage: '#9CAE86',
   cream: '#F1EADD',
   terracotta: '#D9A672',

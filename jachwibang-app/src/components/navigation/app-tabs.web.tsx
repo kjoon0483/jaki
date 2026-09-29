@@ -2,7 +2,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs, TabList, TabTrigger, TabSlot, TabTriggerSlotProps } from 'expo-router/ui';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 const TAB_ITEMS = [
   { name: 'index', href: '/', label: '홈', icon: 'home-outline' },
@@ -13,12 +14,13 @@ const TAB_ITEMS = [
 ] as const;
 
 export default function AppTabs() {
+  const theme = useTheme();
   return (
-    <View style={styles.page}>
-      <View style={styles.phone}>
+    <View style={[styles.page, { backgroundColor: theme.backgroundElement }]}>
+      <View style={[styles.phone, { backgroundColor: theme.background, borderColor: theme.border }]}>
         <Tabs style={styles.tabsRoot}>
           <TabSlot style={styles.slot} />
-          <TabList style={styles.tabList}>
+          <TabList style={[styles.tabList, { borderColor: theme.border, backgroundColor: theme.background }]}>
             {TAB_ITEMS.map((item) => (
               <TabTrigger key={item.name} name={item.name} href={item.href} asChild>
                 <TabButton label={item.label} icon={item.icon} />
@@ -37,10 +39,11 @@ function TabButton({
   isFocused,
   ...props
 }: TabTriggerSlotProps & { label: string; icon: keyof typeof Ionicons.glyphMap }) {
-  const color = isFocused ? Colors.light.accent : Colors.light.textSecondary;
+  const theme = useTheme();
+  const color = isFocused ? theme.accent : theme.textSecondary;
   return (
     <Pressable {...props} style={styles.tabButton}>
-      <View style={[styles.tabIconWrap, isFocused && { backgroundColor: Colors.light.backgroundSelected }]}>
+      <View style={[styles.tabIconWrap, isFocused && { backgroundColor: theme.accentSoft }]}>
         <Ionicons name={icon} size={21} color={color} />
       </View>
       <Text style={[styles.tabLabel, { color }, isFocused && styles.tabLabelFocused]}>{label}</Text>
@@ -52,16 +55,13 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: Colors.light.backgroundElement,
   },
   phone: {
     flex: 1,
     width: '100%',
     maxWidth: MaxContentWidth,
-    backgroundColor: Colors.light.background,
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    borderColor: Colors.light.border,
   },
   tabsRoot: {
     flex: 1,
@@ -72,8 +72,6 @@ const styles = StyleSheet.create({
   tabList: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: Colors.light.background,
     paddingVertical: Spacing.two,
   },
   tabButton: {

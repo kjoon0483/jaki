@@ -5,15 +5,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/state/auth-state';
+import { ThemePreference, useThemePreference } from '@/state/theme-state';
 
 const MENU = [
   { label: '프로필 수정', icon: 'person-outline' },
   { label: '알림 설정', icon: 'notifications-outline' },
 ] as const;
 
+const THEME_OPTIONS: { value: ThemePreference; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: 'system', label: '시스템', icon: 'phone-portrait-outline' },
+  { value: 'light', label: '라이트', icon: 'sunny-outline' },
+  { value: 'dark', label: '다크', icon: 'moon-outline' },
+];
+
 export default function MyPageScreen() {
   const theme = useTheme();
   const { session, signOut } = useAuth();
+  const { preference, setPreference } = useThemePreference();
   const email = session?.user.email ?? '';
   const nickname = (session?.user.user_metadata?.nickname as string | undefined) ?? '';
   const displayName = nickname || email || '알 수 없음';
@@ -38,6 +46,26 @@ export default function MyPageScreen() {
           <View>
             <Text style={[styles.name, { color: theme.text }]}>{displayName}</Text>
             <Text style={[styles.email, { color: theme.textSecondary }]}>{email || '자취방 키우기 회원'}</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>화면 테마</Text>
+          <View style={[styles.segment, { backgroundColor: theme.backgroundElement }]}>
+            {THEME_OPTIONS.map((opt) => {
+              const active = preference === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => setPreference(opt.value)}
+                  style={[styles.segmentBtn, active && { backgroundColor: theme.accent }]}>
+                  <Ionicons name={opt.icon} size={15} color={active ? theme.onAccent : theme.text} />
+                  <Text style={[styles.segmentText, { color: active ? theme.onAccent : theme.text }]}>{opt.label}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
@@ -78,6 +106,19 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 18, fontWeight: '700' },
   name: { fontSize: 15, fontWeight: '600' },
   email: { fontSize: 12, marginTop: 2 },
+  section: { gap: Spacing.two },
+  sectionLabel: { fontSize: 13 },
+  segment: { flexDirection: 'row', padding: 4, borderRadius: Spacing.three, gap: 4 },
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: Spacing.three - 4,
+  },
+  segmentText: { fontSize: 13, fontWeight: '600' },
   menuBox: { borderRadius: Spacing.three, overflow: 'hidden' },
   menuRow: {
     flexDirection: 'row',

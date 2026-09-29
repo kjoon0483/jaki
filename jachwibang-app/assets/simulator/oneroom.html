@@ -9,21 +9,21 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #DCE3E6; --panel: rgba(247,249,250,0.94); --ink: #1E2A31; --muted: #5B6A72;
-    --line: #C3CDD2; --accent: #3552A6; --accent-ink: #FFFFFF; --danger: #B03A3A;
+    --bg: #E6E2D8; --panel: rgba(250,247,241,0.95); --ink: #22281F; --muted: #5F6356;
+    --line: #D3C8B4; --accent: #2F5446; --accent-ink: #FFFFFF; --danger: #A83A34;
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #151B20; --panel: rgba(28,36,42,0.94); --ink: #E6ECEF; --muted: #9AA8B0;
-      --line: #34424B; --accent: #7F9BEA; --accent-ink: #0F1720; --danger: #E27C7C;
+      --bg: #161A16; --panel: rgba(33,38,33,0.95); --ink: #F1EFE7; --muted: #B3B0A2;
+      --line: #384036; --accent: #9DB892; --accent-ink: #141A14; --danger: #D4837A;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #151B20; --panel: rgba(28,36,42,0.94); --ink: #E6ECEF; --muted: #9AA8B0;
-    --line: #34424B; --accent: #7F9BEA; --accent-ink: #0F1720; --danger: #E27C7C;
+    --bg: #161A16; --panel: rgba(33,38,33,0.95); --ink: #F1EFE7; --muted: #B3B0A2;
+    --line: #384036; --accent: #9DB892; --accent-ink: #141A14; --danger: #D4837A;
   }
   *, *::before, *::after { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -385,7 +385,7 @@
   const canvas = renderer.domElement;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xDCE3E6);
+  scene.background = new THREE.Color(0xE6E2D8);
   const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 120);
   const controls = new THREE.OrbitControls(camera, canvas);
   controls.enableDamping = true; controls.dampingFactor = 0.08;
@@ -923,12 +923,18 @@
   scene.add(sun); scene.add(sun.target);
   const ceiling = new THREE.PointLight(0xFFE3BD, 0, 14, 2); scene.add(ceiling);
   const lampLight = new THREE.PointLight(0xFFC98A, 0, 3.5, 2); scene.add(lampLight);
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), mat(0xC9D1D5, { roughness: 1 }));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), mat(0xD3CEC2, { roughness: 1 }));
   ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; scene.add(ground);
 
   let lightsOn = false;
-  const C_NIGHT = new THREE.Color(0x141A1F), C_DAY = new THREE.Color(0xDCE3E6), C_DAWN = new THREE.Color(0xE9CDB0);
-  const G_NIGHT = new THREE.Color(0x20282D), G_DAY = new THREE.Color(0xC9D1D5);
+  const C_NIGHT = new THREE.Color(0x151A16), C_DAY = new THREE.Color(0xE6E2D8), C_DAWN = new THREE.Color(0xE9CDB0);
+  const G_NIGHT = new THREE.Color(0x1E241F), G_DAY = new THREE.Color(0xD3CEC2);
+  // 앱이 다크 테마일 때는 낮 하늘·바닥도 어둡게 잡아서 패널과 톤을 맞춘다.
+  const C_DAY_DK = new THREE.Color(0x20251F), C_DAWN_DK = new THREE.Color(0x2E2822), G_DAY_DK = new THREE.Color(0x070907);
+  function isDarkUI() {
+    const t = document.documentElement.dataset.theme;
+    return t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
   const SUN_LOW = new THREE.Color(0xFFA964), SUN_HIGH = new THREE.Color(0xFFF4E4);
   function applyEnv() {
     const t = +$('timeIn').value;
@@ -952,8 +958,9 @@
     M.curtain.emissiveIntensity = day * 0.35 * (0.4 + 0.6 * closedAmt);   // sunlit fabric glows softly
     hemi.color.set(0x7F93B8).lerp(new THREE.Color(0xffffff), day);
     const warm = (1 - smooth(0.1, 0.5, s)) * day * 0.6;
-    scene.background.copy(C_NIGHT).lerp(C_DAY, day).lerp(C_DAWN, warm);
-    ground.material.color.copy(G_NIGHT).lerp(G_DAY, day);
+    const dk = isDarkUI();
+    scene.background.copy(C_NIGHT).lerp(dk ? C_DAY_DK : C_DAY, day).lerp(dk ? C_DAWN_DK : C_DAWN, warm);
+    ground.material.color.copy(G_NIGHT).lerp(dk ? G_DAY_DK : G_DAY, day);
 
     ceiling.intensity = lightsOn ? 1.2 : 0;
     M.lampShade.emissive.set(lightsOn ? 0xFFC98A : 0x000000); M.lampShade.emissiveIntensity = lightsOn ? 0.9 : 0;
@@ -1805,6 +1812,9 @@
   $('collapseBtn').addEventListener('click', () => setCollapsed(!panel.classList.contains('collapsed')));
   showSection(0);
   setCollapsed(true);
+
+  // 앱에서 테마를 바꾸면(<html data-theme>) 배경 하늘·바닥 색을 다시 계산한다.
+  new MutationObserver(() => applyEnv()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
   // 폰 화면에서 가구를 선택하면 아래 시트를 숨기고 선택 바만 보여준다.
   new MutationObserver(() => {

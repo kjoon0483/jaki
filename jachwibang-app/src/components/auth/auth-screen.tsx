@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-state';
@@ -40,6 +41,7 @@ function friendlyError(message: string) {
 
 export function AuthScreen() {
   const theme = useTheme();
+  const scheme = useColorScheme();
   const { signIn, signUp, resendSignUpCode, requestPasswordReset } = useAuth();
 
   const [view, setView] = useState<AuthView>('login');
@@ -176,7 +178,10 @@ export function AuthScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Image style={styles.logo} source={require('@/assets/images/splash-logo.png')} contentFit="contain" />
+            {/* The logo art has a dark-green wordmark, so in dark mode it sits on a cream tile to stay legible. */}
+            <View style={[styles.logoTile, scheme === 'dark' && { backgroundColor: Colors.light.backgroundElement }]}>
+              <Image style={styles.logo} source={require('@/assets/images/splash-logo.png')} contentFit="contain" />
+            </View>
             <Text style={[styles.title, { color: theme.text }]}>자취방 키우기</Text>
             <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{title}</Text>
           </View>
@@ -448,7 +453,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   header: { alignItems: 'center', gap: Spacing.one },
-  logo: { width: 96, height: 84, marginBottom: Spacing.two },
+  logoTile: { borderRadius: 24, padding: 10, marginBottom: Spacing.two },
+  logo: { width: 96, height: 84 },
   title: { fontSize: 22, fontWeight: '700' },
   subtitle: { fontSize: 12.5 },
   card: {
