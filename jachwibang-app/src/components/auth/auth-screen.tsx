@@ -17,16 +17,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
+import { MAX_NICKNAME_LEN, MIN_NICKNAME_LEN, MIN_PASSWORD_LEN, PASSWORD_SPECIAL_RE } from '@/lib/account-rules';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-state';
 
 type AuthView = 'login' | 'signup' | 'signup-sent' | 'forgot-request' | 'forgot-sent';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD_LEN = 8;
-const PASSWORD_SPECIAL_RE = /[!-/:-@[-`{-~]/;
-const MIN_NICKNAME_LEN = 2;
-const MAX_NICKNAME_LEN = 12;
 
 function friendlyError(message: string) {
   const m = message.toLowerCase();

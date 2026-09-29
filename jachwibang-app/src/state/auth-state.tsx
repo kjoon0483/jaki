@@ -13,6 +13,8 @@ interface AuthValue {
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
   completePasswordReset: (newPassword: string) => Promise<{ error: string | null }>;
+  updateNickname: (nickname: string) => Promise<{ error: string | null }>;
+  changePassword: (newPassword: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -76,6 +78,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return { error: error?.message ?? null };
   }
 
+  // The nickname lives in the auth user's metadata (shown on My Page / Home) and is mirrored into
+  // `profiles.display_name`, which is what other people see on community posts.
+  async function updateNickname(nickname: string) {
+    const name = nickname.trim();
+    const { data, error } = await supabase.auth.updateUser({ data: { nickname: name } });
+    if (error) return { error: error.message };
+    const { error: profileError } = await supabase.from('profiles').update({ display_name: name }).eq('id', data.user.id);
+    return { error: profileError?.message ?? null };
+  }
+
+  async function changePassword(newPassword: string) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error: error?.message ?? null };
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -87,6 +104,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         signOut,
         requestPasswordReset,
         completePasswordReset,
+        updateNickname,
+        changePassword,
       }}>
       {children}
     </AuthContext.Provider>
