@@ -1,4 +1,4 @@
-export type FurnitureType = 'sofa' | 'bed' | 'armchair' | 'table';
+export type FurnitureType = 'sofa' | 'bed' | 'armchair' | 'table' | 'lamp' | 'rug' | 'plant' | 'bookshelf';
 
 export interface PlacedFurniture {
   id: number;
@@ -6,7 +6,60 @@ export interface PlacedFurniture {
   x: number; // percentage across the floor, 0-100
   y: number; // percentage down the floor, 0-100
   rotation: number; // degrees
+  scale?: number; // size multiplier, default 1
 }
+
+export type WallFeatureType = 'window' | 'door';
+
+/** A window or door placed on one of the room's 4 edges. */
+export interface WallFeature {
+  id: number;
+  edge: 'top' | 'left' | 'bottom' | 'right';
+  position: number; // percent along the edge, 0-100
+  type: WallFeatureType;
+}
+
+/** A room's floor plan: which cells of a cols x rows grid are actual floor. */
+export interface RoomShape {
+  cols: number;
+  rows: number;
+  cells: string[]; // "x,y" keys of active floor cells
+  features: WallFeature[];
+}
+
+/** Real-world size of one grid cell, for the meter-based size inputs. */
+export const CELL_METERS = 0.5;
+
+export function cellKey(x: number, y: number) {
+  return `${x},${y}`;
+}
+
+export function parseCellKey(key: string) {
+  const [x, y] = key.split(',').map(Number);
+  return { x, y };
+}
+
+function rectCells(cols: number, rows: number): string[] {
+  const cells: string[] = [];
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) cells.push(cellKey(x, y));
+  }
+  return cells;
+}
+
+export const ROOM_MIN_SIZE = 4;
+export const ROOM_MAX_SIZE = 16;
+export const ROOM_MIN_CELLS = 4;
+
+export const initialRoomShape: RoomShape = {
+  cols: 8,
+  rows: 7,
+  cells: rectCells(8, 7),
+  features: [
+    { id: 1, edge: 'top', position: 30, type: 'window' },
+    { id: 2, edge: 'left', position: 70, type: 'door' },
+  ],
+};
 
 export interface Comment {
   author: string;

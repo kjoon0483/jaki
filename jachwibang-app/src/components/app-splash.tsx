@@ -1,30 +1,33 @@
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
 const FADE_IN_MS = 900;
 const HOLD_MS = 2000;
-const FADE_OUT_MS = 600;
+const FADE_OUT_MS = 900;
 
 /** Full-brand splash (icon + wordmark) shown for a moment on app launch. */
 export function AppSplash() {
   const [visible, setVisible] = useState(true);
-  const opacity = useRef(new Animated.Value(0)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // The solid background below is opaque from the very first frame, so hiding
+    // the native splash here never exposes the screen underneath. Only the logo
+    // image fades in/out on top of it.
     SplashScreen.hideAsync().catch(() => {});
 
-    Animated.timing(opacity, {
+    Animated.timing(logoOpacity, {
       toValue: 1,
       duration: FADE_IN_MS,
       useNativeDriver: true,
     }).start();
 
     const timer = setTimeout(() => {
-      Animated.timing(opacity, {
+      Animated.timing(logoOpacity, {
         toValue: 0,
         duration: FADE_OUT_MS,
         useNativeDriver: true,
@@ -33,18 +36,16 @@ export function AppSplash() {
       });
     }, FADE_IN_MS + HOLD_MS);
     return () => clearTimeout(timer);
-  }, [opacity]);
+  }, [logoOpacity]);
 
   if (!visible) return null;
 
   return (
-    <Animated.View style={[styles.overlay, { opacity }]}>
-      <Image
-        style={styles.logo}
-        source={require('@/assets/images/splash-logo.png')}
-        contentFit="contain"
-      />
-    </Animated.View>
+    <View style={styles.overlay}>
+      <Animated.View style={[styles.logo, { opacity: logoOpacity }]}>
+        <Image style={styles.logoImage} source={require('@/assets/images/splash-logo.png')} contentFit="contain" />
+      </Animated.View>
+    </View>
   );
 }
 
@@ -60,5 +61,9 @@ const styles = StyleSheet.create({
     width: '80%',
     maxWidth: 380,
     aspectRatio: 2035 / 1792,
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
 });

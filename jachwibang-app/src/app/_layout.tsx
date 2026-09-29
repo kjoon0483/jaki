@@ -1,4 +1,4 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Slot, ThemeProvider, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
@@ -26,6 +26,11 @@ export default function RootLayout() {
 
 function RootContent() {
   const { session, initializing } = useAuth();
+  const pathname = usePathname();
+
+  // The password-recovery email link lands here; render it regardless of
+  // auth state, since the link itself carries a temporary recovery session.
+  if (pathname.startsWith('/reset-password')) return <Slot />;
 
   if (initializing) return null;
 

@@ -15,7 +15,9 @@ export default function MyPageScreen() {
   const theme = useTheme();
   const { session, signOut } = useAuth();
   const email = session?.user.email ?? '';
-  const initial = email.charAt(0).toUpperCase() || '?';
+  const nickname = (session?.user.user_metadata?.nickname as string | undefined) ?? '';
+  const displayName = nickname || email || '알 수 없음';
+  const initial = displayName.charAt(0).toUpperCase() || '?';
 
   function handleSignOut() {
     Alert.alert('로그아웃', '로그아웃 하시겠어요?', [
@@ -34,8 +36,8 @@ export default function MyPageScreen() {
             <Text style={[styles.avatarText, { color: theme.accent }]}>{initial}</Text>
           </View>
           <View>
-            <Text style={[styles.name, { color: theme.text }]}>{email || '알 수 없음'}</Text>
-            <Text style={[styles.email, { color: theme.textSecondary }]}>자취방 키우기 회원</Text>
+            <Text style={[styles.name, { color: theme.text }]}>{displayName}</Text>
+            <Text style={[styles.email, { color: theme.textSecondary }]}>{email || '자취방 키우기 회원'}</Text>
           </View>
         </View>
 

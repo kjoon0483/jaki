@@ -1,4 +1,5 @@
 import { Session } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
 import { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
@@ -7,12 +8,11 @@ interface AuthValue {
   session: Session | null;
   initializing: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
-  confirmSignUp: (email: string, code: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, nickname: string) => Promise<{ error: string | null }>;
   resendSignUpCode: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
-  confirmPasswordReset: (email: string, code: string, newPassword: string) => Promise<{ error: string | null }>;
+  completePasswordReset: (newPassword: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -39,18 +39,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return { error: error?.message ?? null };
   }
 
-  async function signUp(email: string, password: string) {
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error: error?.message ?? null };
-  }
-
-  async function confirmSignUp(email: string, code: string) {
-    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'signup' });
+  async function signUp(email: string, password: string, nickname: string) {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { nickname }, emailRedirectTo: Linking.createURL('/') },
+    });
     return { error: error?.message ?? null };
   }
 
   async function resendSignUpCode(email: string) {
-    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: Linking.createURL('/') },
+    });
     return { error: error?.message ?? null };
   }
 
@@ -59,19 +62,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }
 
   async function requestPasswordReset(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: Linking.createURL('reset-password'),
+    });
     return { error: error?.message ?? null };
   }
 
-  async function confirmPasswordReset(email: string, code: string, newPassword: string) {
-    const { error: verifyError } = await supabase.auth.verifyOtp({ email, token: code, type: 'recovery' });
-    if (verifyError) return { error: verifyError.message };
-
-    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-    // Verifying the recovery code signs the user in via a temporary session;
+  async function completePasswordReset(newPassword: string) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    // The recovery link signs the user in via a temporary session;
     // sign out so they land back on the login form with their new password.
     await supabase.auth.signOut();
-    return { error: updateError?.message ?? null };
+    return { error: error?.message ?? null };
   }
 
   return (
@@ -81,11 +83,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         initializing,
         signIn,
         signUp,
-        confirmSignUp,
         resendSignUpCode,
         signOut,
         requestPasswordReset,
-        confirmPasswordReset,
+        completePasswordReset,
       }}>
       {children}
     </AuthContext.Provider>

@@ -19,7 +19,10 @@ export const supabase = createClient(supabaseUrl || 'https://placeholder.supabas
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
+    // Always start on the login screen instead of restoring a previous session.
+    persistSession: false,
+    // Required so the app can pick up the session from a signup-confirmation
+    // or password-recovery email link when it lands back in the app.
+    detectSessionInUrl: true,
   },
 });

@@ -40,8 +40,10 @@ function TabButton({
   const color = isFocused ? Colors.light.accent : Colors.light.textSecondary;
   return (
     <Pressable {...props} style={styles.tabButton}>
-      <Ionicons name={icon} size={21} color={color} />
-      <Text style={[styles.tabLabel, { color }]}>{label}</Text>
+      <View style={[styles.tabIconWrap, isFocused && { backgroundColor: Colors.light.backgroundSelected }]}>
+        <Ionicons name={icon} size={21} color={color} />
+      </View>
+      <Text style={[styles.tabLabel, { color }, isFocused && styles.tabLabelFocused]}>{label}</Text>
     </Pressable>
   );
 }
@@ -81,7 +83,15 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingVertical: Spacing.one,
   },
+  tabIconWrap: {
+    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 4,
+  },
   tabLabel: {
     fontSize: 11,
+  },
+  tabLabelFocused: {
+    fontWeight: '700',
   },
 });
