@@ -7,6 +7,7 @@ import { AuthScreen } from '@/components/auth/auth-screen';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AppStateProvider } from '@/state/app-state';
 import { AuthProvider, useAuth } from '@/state/auth-state';
+import { BudgetProvider } from '@/state/budget-state';
 import { ThemePreferenceProvider } from '@/state/theme-state';
 
 SplashScreen.preventAutoHideAsync();
@@ -43,5 +44,11 @@ function RootContent() {
 
   if (initializing) return null;
 
-  return session ? <AppTabs /> : <AuthScreen />;
+  return session ? (
+    <BudgetProvider>
+      <AppTabs />
+    </BudgetProvider>
+  ) : (
+    <AuthScreen />
+  );
 }

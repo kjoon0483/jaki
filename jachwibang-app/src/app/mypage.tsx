@@ -1,9 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { confirmAsync, notify } from '@/lib/confirm';
 import { useAuth } from '@/state/auth-state';
 import { ThemePreference, useThemePreference } from '@/state/theme-state';
 
@@ -27,11 +28,8 @@ export default function MyPageScreen() {
   const displayName = nickname || email || '알 수 없음';
   const initial = displayName.charAt(0).toUpperCase() || '?';
 
-  function handleSignOut() {
-    Alert.alert('로그아웃', '로그아웃 하시겠어요?', [
-      { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: signOut },
-    ]);
+  async function handleSignOut() {
+    if (await confirmAsync('로그아웃', '로그아웃 하시겠어요?', '로그아웃')) signOut();
   }
 
   return (
@@ -74,7 +72,7 @@ export default function MyPageScreen() {
             <Pressable
               key={item.label}
               style={[styles.menuRow, i < MENU.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border }]}
-              onPress={() => Alert.alert(item.label, '준비 중인 기능이에요.')}>
+              onPress={() => notify(item.label, '준비 중인 기능이에요.')}>
               <View style={styles.menuLabel}>
                 <Ionicons name={item.icon} size={16} color={theme.text} />
                 <Text style={[styles.menuText, { color: theme.text }]}>{item.label}</Text>

@@ -105,34 +105,3 @@ export const initialPosts: CommunityPost[] = [
     ],
   },
 ];
-
-export const monthlyExpensesByDay: Record<number, number> = {
-  2: 8000,
-  5: 32000,
-  9: 15000,
-  14: 52000,
-  18: 9000,
-  23: 41000,
-  27: 6000,
-};
-
-export const totalThisMonth = 482000;
-/** Monthly spending goal shown as a progress bar on the home screen. */
-export const monthlyBudget = 600000;
-export const savedThisMonth = 58000;
-
-export const categoryBreakdown: { category: string; icon: string; amount: number }[] = [
-  { category: '식비', icon: 'restaurant-outline', amount: 210000 },
-  { category: '월세', icon: 'business-outline', amount: 200000 },
-  { category: '공과금', icon: 'flash-outline', amount: 72000 },
-];
-
-export const recentActivity: { icon: string; text: string; tone: 'success' | 'accent' | 'warm' }[] = [
-  { icon: 'sparkles-outline', text: '이번 달 58,000원 절약했어요', tone: 'success' },
-  { icon: 'receipt-outline', text: '식비 12,000원 지출 등록', tone: 'accent' },
-  { icon: 'heart-outline', text: '내 3D 배치에 좋아요 3개', tone: 'warm' },
-];
-
-export function formatWon(n: number) {
-  return '₩' + n.toLocaleString('ko-KR');
-}

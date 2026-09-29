@@ -5,13 +5,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-/** Standard tab screen: safe area, scroll, centered max-width column and a page header. */
+/**
+ * Standard tab screen: safe area, scroll, centered max-width column and a page header.
+ * `floating` renders above the scroll view (e.g. a floating action button).
+ */
 export function Screen({
   title,
   eyebrow,
   right,
+  floating,
   children,
-}: PropsWithChildren<{ title: string; eyebrow?: string; right?: ReactNode }>) {
+}: PropsWithChildren<{ title: string; eyebrow?: string; right?: ReactNode; floating?: ReactNode }>) {
   const theme = useTheme();
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top']}>
@@ -25,6 +29,7 @@ export function Screen({
         </View>
         {children}
       </ScrollView>
+      {floating}
     </SafeAreaView>
   );
 }
