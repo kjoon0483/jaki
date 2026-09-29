@@ -1,5 +1,5 @@
 import { PropsWithChildren, ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -14,12 +14,26 @@ export function Screen({
   eyebrow,
   right,
   floating,
+  refreshing,
+  onRefresh,
   children,
-}: PropsWithChildren<{ title: string; eyebrow?: string; right?: ReactNode; floating?: ReactNode }>) {
+}: PropsWithChildren<{
+  title: string;
+  eyebrow?: string;
+  right?: ReactNode;
+  floating?: ReactNode;
+  /** Enables pull-to-refresh when provided. */
+  onRefresh?: () => void;
+  refreshing?: boolean;
+}>) {
   const theme = useTheme();
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={theme.accent} /> : undefined
+        }>
         <View style={styles.header}>
           <View style={styles.headerText}>
             {eyebrow ? <Text style={[styles.eyebrow, { color: theme.textSecondary }]}>{eyebrow}</Text> : null}

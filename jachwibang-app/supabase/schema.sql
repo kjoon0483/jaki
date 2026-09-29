@@ -54,11 +54,14 @@ create table if not exists public.room_furniture (
 
 create index if not exists room_furniture_user_id_idx on public.room_furniture (user_id);
 
--- community_posts: 커뮤니티에 공유된 배치 스냅샷
+-- community_posts: 커뮤니티 글 (본문·주제, 선택적으로 배치 스냅샷)
+-- 이미 테이블을 만든 경우에는 migrations/002_community_posts_body.sql 을 실행하세요.
 create table if not exists public.community_posts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   placed jsonb not null default '[]'::jsonb,
+  body text not null check (char_length(body) between 1 and 1000),
+  topic text not null default '잡담',
   likes_count integer not null default 0,
   created_at timestamptz not null default now()
 );

@@ -47,15 +47,6 @@ export const Colors = {
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
-/** Fixed brand hues used for furniture/plant illustrations, independent of theme. */
-export const Brand = {
-  deepGreen: '#2F5446',
-  sage: '#9CAE86',
-  cream: '#F1EADD',
-  terracotta: '#D9A672',
-  bark: '#5B7A63',
-} as const;
-
 export const Fonts = Platform.select({
   ios: {
     sans: 'system-ui',

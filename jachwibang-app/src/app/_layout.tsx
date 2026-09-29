@@ -5,7 +5,6 @@ import { AppSplash } from '@/components/app-splash';
 import AppTabs from '@/components/navigation/app-tabs';
 import { AuthScreen } from '@/components/auth/auth-screen';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { AppStateProvider } from '@/state/app-state';
 import { AuthProvider, useAuth } from '@/state/auth-state';
 import { BudgetProvider } from '@/state/budget-state';
 import { ThemePreferenceProvider } from '@/state/theme-state';
@@ -25,10 +24,8 @@ function ThemedRoot() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
-        <AppStateProvider>
-          <RootContent />
-          <AppSplash />
-        </AppStateProvider>
+        <RootContent />
+        <AppSplash />
       </AuthProvider>
     </ThemeProvider>
   );
