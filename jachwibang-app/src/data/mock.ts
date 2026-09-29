@@ -117,6 +117,8 @@ export const monthlyExpensesByDay: Record<number, number> = {
 };
 
 export const totalThisMonth = 482000;
+/** Monthly spending goal shown as a progress bar on the home screen. */
+export const monthlyBudget = 600000;
 export const savedThisMonth = 58000;
 
 export const categoryBreakdown: { category: string; icon: string; amount: number }[] = [
@@ -125,10 +127,10 @@ export const categoryBreakdown: { category: string; icon: string; amount: number
   { category: '공과금', icon: 'flash-outline', amount: 72000 },
 ];
 
-export const recentActivity: { icon: string; text: string; tone: 'success' | 'accent' | 'danger' }[] = [
+export const recentActivity: { icon: string; text: string; tone: 'success' | 'accent' | 'warm' }[] = [
   { icon: 'sparkles-outline', text: '이번 달 58,000원 절약했어요', tone: 'success' },
   { icon: 'receipt-outline', text: '식비 12,000원 지출 등록', tone: 'accent' },
-  { icon: 'heart-outline', text: '내 3D 배치에 좋아요 3개', tone: 'danger' },
+  { icon: 'heart-outline', text: '내 3D 배치에 좋아요 3개', tone: 'warm' },
 ];
 
 export function formatWon(n: number) {

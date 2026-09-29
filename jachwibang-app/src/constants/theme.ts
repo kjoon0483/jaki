@@ -19,6 +19,9 @@ export const Colors = {
     accent: '#2F5446', // 짙은 초록 지붕
     accentSoft: '#E1E9DA',
     onAccent: '#FFFFFF',
+    // 큰 강조 카드(홈 요약 등) 배경. 다크에서는 밝은 세이지 대신 짙은 초록을 써서 눈부심을 줄인다.
+    surfaceAccent: '#2F5446',
+    onSurfaceAccent: '#FFFFFF',
     warm: '#B5673F', // 테라코타 화분: 강조·하이라이트 (아이콘·큰 글자용)
     success: '#3F6B2A',
     danger: '#A83A34',
@@ -33,6 +36,8 @@ export const Colors = {
     accent: '#9DB892',
     accentSoft: '#28342A',
     onAccent: '#141A14',
+    surfaceAccent: '#2E4A3D',
+    onSurfaceAccent: '#F1EFE7',
     warm: '#D49A7A',
     success: '#97BD7C',
     danger: '#D4837A',
