@@ -1,0 +1,2152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>원룸 배치 시뮬레이터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #DCE3E6; --panel: rgba(247,249,250,0.94); --ink: #1E2A31; --muted: #5B6A72;
+    --line: #C3CDD2; --accent: #3552A6; --accent-ink: #FFFFFF; --danger: #B03A3A;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151B20; --panel: rgba(28,36,42,0.94); --ink: #E6ECEF; --muted: #9AA8B0;
+      --line: #34424B; --accent: #7F9BEA; --accent-ink: #0F1720; --danger: #E27C7C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151B20; --panel: rgba(28,36,42,0.94); --ink: #E6ECEF; --muted: #9AA8B0;
+    --line: #34424B; --accent: #7F9BEA; --accent-ink: #0F1720; --danger: #E27C7C;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    font-size: 14px; line-height: 1.5;
+  }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  .hud {
+    position: fixed; top: 0; left: 0; max-width: 100%;
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 12px 0 12px;
+    pointer-events: none;
+  }
+  .card {
+    pointer-events: auto; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .panel { width: 320px; max-width: calc(100vw - 24px); display: flex; flex-direction: column;
+    max-height: calc(100vh - 150px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+  .phead { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; }
+  .phead > div { flex: 1; }
+  h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  .dims { margin: 0; color: var(--accent); font-weight: 600; font-size: 13px; }
+  .pbody { overflow-y: auto; padding: 0 14px 14px; border-top: 1px solid var(--line); }
+  .panel.collapsed .pbody { display: none; }
+  section { padding-top: 12px; }
+  h2 { font-size: 13px; font-weight: 600; margin: 0 0 6px; color: var(--muted); }
+  .help { margin: 6px 0 0; color: var(--muted); font-size: 12.5px; min-height: 2.6em; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  button, select {
+    font: inherit; font-size: 13px; color: var(--ink); background: transparent;
+    border: 1px solid var(--line); border-radius: 9px; padding: 5px 10px; cursor: pointer;
+  }
+  select { background: var(--panel); flex: 1; min-width: 0; }
+  button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button:hover, select:hover { border-color: var(--accent); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  button:disabled { opacity: 0.45; cursor: default; }
+  [data-mode="erase"][aria-pressed="true"] { background: var(--danger); border-color: var(--danger); }
+  .tools button { padding: 6px 4px; }
+  .sizein { display: flex; gap: 10px; flex-wrap: wrap; }
+  .sizein label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+  .sizein input { width: 76px; font: inherit; font-size: 14px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--panel); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+  .sizein input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .optlabel { font-size: 13px; width: 34px; color: var(--muted); }
+  #roomOpts button { padding: 4px 9px; font-size: 12.5px; }
+  #bathPosRow button { padding: 3px 8px; font-size: 12px; }
+  #winEdit .row button, [data-face] { padding: 4px 9px; font-size: 12.5px; }
+  #winList button { padding: 4px 10px; font-size: 12.5px; }
+  .slider { display: grid; grid-template-columns: 52px 1fr 86px; gap: 8px; align-items: center; margin-bottom: 4px; }
+  .slider label { font-size: 13px; }
+  .slider output { font-size: 12.5px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sw { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px 4px 5px; }
+  .chip { width: 18px; height: 18px; border-radius: 5px; border: 1px solid rgba(0,0,0,0.15); display: inline-block; }
+  .colorpick { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; border: 1px solid var(--line); border-radius: 9px; padding: 2px 9px 2px 4px; }
+  input[type="color"] { width: 24px; height: 24px; border: 0; padding: 0; background: none; cursor: pointer; }
+  .ghost { border-color: transparent; color: var(--muted); padding: 3px 8px; }
+
+  body.walking .hud, body.walking .selbar { display: none !important; }
+  #walkHud[hidden] { display: none; }
+  .crosshair { position: fixed; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
+    background: rgba(255,255,255,0.9); box-shadow: 0 0 0 1.5px rgba(0,0,0,0.45); pointer-events: none; }
+  .walkPrompt { position: fixed; left: 50%; top: calc(50% + 22px); transform: translateX(-50%); padding: 4px 10px; border-radius: 8px;
+    background: rgba(20,26,31,0.72); color: #fff; font-size: 13px; pointer-events: none; white-space: nowrap; }
+  .walkPrompt:empty { display: none; }
+  .walkTop { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none;
+    padding: calc(env(safe-area-inset-top, 0px) + 10px) 10px 0; }
+  .walkHelp { display: flex; align-items: center; gap: 12px; padding: 8px 12px; font-size: 12.5px; color: var(--muted); max-width: 760px; }
+  .walkHelp strong { color: var(--ink); white-space: nowrap; }
+  .walkHelp button { white-space: nowrap; flex-shrink: 0; }
+  @media (max-width: 700px) { .walkHelp span { display: none; } }
+  .walkPad { position: fixed; right: 14px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); display: grid;
+    grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 52px); gap: 6px; }
+  .walkPad button { background: var(--panel); font-size: 18px; padding: 0; border-radius: 12px; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .walkPad [data-k="KeyW"] { grid-column: 2; grid-row: 1; }
+  .walkPad [data-k="KeyA"] { grid-column: 1; grid-row: 2; }
+  .walkPad [data-k="KeyS"] { grid-column: 2; grid-row: 2; }
+  .walkPad [data-k="KeyD"] { grid-column: 3; grid-row: 2; }
+  .walkPad #padUse { grid-column: 3; grid-row: 1; font-size: 15px; font-weight: 600; }
+  @media (hover: hover) and (pointer: fine) { .walkPad { display: none; } }
+  .selbar {
+    position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: center;
+    padding: 0 12px calc(env(safe-area-inset-bottom, 0px) + 12px); pointer-events: none;
+  }
+  .selbar[hidden] { display: none; }
+  .selbar .card { padding: 10px 14px; width: 440px; max-width: 100%; }
+  .seltop { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .selname { font-weight: 600; }
+  .selsize { color: var(--muted); font-size: 12.5px; flex: 1; }
+  .danger { color: var(--danger); }
+  .selbar .slider { grid-template-columns: 58px 1fr 54px auto; }
+  .steps { display: inline-flex; gap: 4px; }
+  #colorRow { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .colorhead { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .clabel { font-size: 13px; width: 32px; }
+  .parts { display: inline-flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+  .parts button { padding: 2px 9px; font-size: 12px; }
+  .fsws { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .fsw { width: 26px; height: 26px; padding: 0; border-radius: 7px; border: 1px solid rgba(0,0,0,0.18); }
+  .fsw[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; background-clip: padding-box; }
+  .fsws input[type="color"] { width: 26px; height: 26px; }
+  .steps button { padding: 3px 7px; font-size: 12px; }
+
+  /* ---------- 패널: 화면 아래쪽 시트 + 탭 칩 (모든 화면 크기) ---------- */
+  .hud {
+    top: auto; bottom: 0; left: 0; right: 0; width: 100%;
+    display: flex; justify-content: center;
+    padding: 0 8px calc(env(safe-area-inset-bottom, 0px) + 8px);
+  }
+  .panel { width: 100%; max-width: 760px; max-height: none; border-radius: 16px; }
+  .phead { display: none; }
+  .mtabs { display: flex; align-items: center; gap: 6px; padding: 8px 8px 8px 10px; }
+  .mtabs .chips {
+    display: flex; gap: 6px; overflow-x: auto; flex: 1; min-width: 0;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch; cursor: grab;
+    touch-action: pan-x; user-select: none; -webkit-user-select: none;
+  }
+  .mtabs .chips.dragging { cursor: grabbing; }
+  .mtabs .chips::-webkit-scrollbar { display: none; }
+  .mtabs button { white-space: nowrap; flex-shrink: 0; padding: 6px 11px; border-radius: 999px; }
+  .mtabs .fold { border-color: transparent; color: var(--muted); padding: 6px 8px; }
+  .pbody { max-height: min(40vh, 340px); padding: 0 12px 12px; }
+  .pbody > section { display: none; }
+  .pbody > section.active { display: block; }
+  .pbody > section > h2 { display: none; }
+  .help { min-height: 0; }
+  body.has-sel .hud { display: none; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div class="hud">
+  <div class="card panel" id="panel">
+    <div class="phead">
+      <div>
+        <h1>원룸 배치 시뮬레이터</h1>
+        <p class="dims" id="dims"></p>
+      </div>
+      <button class="ghost" id="collapseBtn" aria-expanded="true">접기</button>
+    </div>
+    <div class="pbody">
+      <section>
+        <h2>도구</h2>
+        <div class="tools" role="group" aria-label="도구">
+          <button data-mode="move" aria-pressed="true">이동</button>
+          <button data-mode="resize" aria-pressed="false">방 크기</button>
+          <button data-mode="wall" aria-pressed="false">벽 그리기</button>
+          <button data-mode="room" aria-pressed="false">방 만들기</button>
+          <button data-mode="partition" aria-pressed="false">칸막이</button>
+          <button data-mode="shelfwall" aria-pressed="false">수납 칸</button>
+          <button data-mode="erase" aria-pressed="false">지우개</button>
+          <button id="undoBtn" disabled>되돌리기</button>
+        </div>
+        <p class="help" id="modeHelp"></p>
+        <div id="roomOpts" hidden>
+          <div class="row" role="group" aria-label="입구 방향" style="margin-top:6px">
+            <span class="optlabel">입구</span>
+            <button data-entry="top" aria-pressed="false">위</button>
+            <button data-entry="bottom" aria-pressed="true">아래</button>
+            <button data-entry="left" aria-pressed="false">왼쪽</button>
+            <button data-entry="right" aria-pressed="false">오른쪽</button>
+            <button data-entry="none" aria-pressed="false">없음</button>
+          </div>
+          <div class="row" role="group" aria-label="입구에 달 문" style="margin-top:6px">
+            <span class="optlabel">문</span>
+            <button data-rdoor="door" aria-pressed="true">여닫이</button>
+            <button data-rdoor="slidedoor" aria-pressed="false">미닫이</button>
+            <button data-rdoor="none" aria-pressed="false">안 달기</button>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>방 크기</h2>
+        <div class="sizein">
+          <label>가로 <input id="roomW" type="number" inputmode="numeric" min="200" max="900" step="5"> cm</label>
+          <label>세로 <input id="roomD" type="number" inputmode="numeric" min="250" max="1200" step="5"> cm</label>
+        </div>
+        <p class="help" id="roomMsg" style="min-height:0">숫자를 입력하고 Enter를 누르세요. 위쪽·왼쪽 벽은 그대로 두고 오른쪽·아래 벽이 움직여요.</p>
+      </section>
+
+      <section>
+        <h2>햇빛과 커튼</h2>
+        <div class="slider"><label for="timeIn">시간</label><input id="timeIn" type="range" min="5" max="22" step="0.25" value="8"><output id="timeOut"></output></div>
+        <div class="row" role="group" aria-label="위쪽 벽이 향하는 방향" style="margin-bottom:8px">
+          <span class="optlabel" style="width:auto">위쪽 벽</span>
+          <button data-face="S" aria-pressed="true">남향</button>
+          <button data-face="E" aria-pressed="false">동향</button>
+          <button data-face="W" aria-pressed="false">서향</button>
+          <button data-face="N" aria-pressed="false">북향</button>
+        </div>
+        <div class="row">
+          <button id="openAll">커튼 모두 열기</button>
+          <button id="closeAll">커튼 모두 닫기</button>
+          <button id="lightBtn" aria-pressed="false">실내 조명 켜기</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>창문</h2>
+        <div class="row" id="winList" role="group" aria-label="창문 선택"></div>
+        <div id="winEdit">
+          <div class="row" role="group" aria-label="창문이 달린 벽" style="margin-top:8px">
+            <span class="optlabel">벽</span>
+            <button data-wall="n">위</button><button data-wall="s">아래</button><button data-wall="w">왼쪽</button><button data-wall="e">오른쪽</button>
+          </div>
+          <div class="row" role="group" aria-label="창문 종류" style="margin:6px 0 8px">
+            <span class="optlabel">종류</span>
+            <button data-win="normal">일반 창</button><button data-win="full">통창</button><button data-win="small">작은 창</button>
+          </div>
+          <div class="slider"><label for="winW">가로</label><input id="winW" type="range" min="0.4" max="3.5" step="0.05"><output id="winWOut"></output></div>
+          <div class="slider"><label for="winH">높이</label><input id="winH" type="range" min="0.3" max="2.33" step="0.05"><output id="winHOut"></output></div>
+          <div class="slider"><label for="winS">창턱</label><input id="winS" type="range" min="0" max="2" step="0.05"><output id="winSOut"></output></div>
+          <div class="slider"><label for="winO">위치</label><input id="winO" type="range" min="-1" max="1" step="0.05"><output id="winOOut"></output></div>
+          <div class="slider"><label for="winC">커튼</label><input id="winC" type="range" min="0" max="100" step="1"><output id="winCOut"></output></div>
+          <div class="row"><button class="ghost danger" id="winDel">이 창문 삭제</button></div>
+        </div>
+        <p class="help" id="winMsg">창문을 직접 끌면 벽을 따라 옮겨지고, 위아래로 끌면 높이가 바뀌어요.</p>
+      </section>
+
+      <section>
+        <h2>바닥재</h2>
+        <div class="swatches" id="floorSw"></div>
+      </section>
+
+      <section>
+        <h2>벽지</h2>
+        <div class="swatches" id="wallSw"></div>
+      </section>
+
+      <section>
+        <h2>화장실 타일</h2>
+        <p class="help" style="min-height:0;margin:0 0 6px">바닥</p>
+        <div class="swatches" id="bathFloorSw"></div>
+        <p class="help" style="min-height:0;margin:10px 0 6px">벽</p>
+        <div class="swatches" id="bathWallSw"></div>
+      </section>
+
+      <section>
+        <h2>가구 추가</h2>
+        <div class="row"><select id="addSel" aria-label="추가할 가구"></select><button id="addBtn">추가</button></div>
+      </section>
+
+      <section>
+        <h2>보기</h2>
+        <div class="row">
+          <button id="view3d" aria-pressed="true">3D 보기</button>
+          <button id="viewTop" aria-pressed="false">위에서 보기</button>
+          <button id="cutBtn" aria-pressed="false">벽 낮춰 보기</button>
+          <button id="resetBtn">방 비우기</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="primary" id="walkBtn">1인칭으로 둘러보기</button>
+          <label class="sizein" style="gap:6px;font-size:13px">키 <input id="heightIn" type="number" min="100" max="220" step="1" value="170" style="width:62px"> cm</label>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div id="walkHud" hidden>
+  <div class="crosshair" aria-hidden="true"></div>
+  <div class="walkPrompt" id="walkPrompt" aria-live="polite"></div>
+  <div class="walkTop">
+    <div class="card walkHelp">
+      <strong>1인칭 둘러보기</strong>
+      <span>WASD·방향키 이동 · Shift 달리기 · 화면을 클릭하면 마우스로 둘러보기(드래그도 돼요) · E 또는 클릭으로 문 열기·조명 켜기 · Esc 두 번 누르면 나가기</span>
+      <button id="walkExit">나가기</button>
+    </div>
+  </div>
+  <div class="walkPad" aria-label="이동 버튼">
+    <button data-k="KeyW" aria-label="앞으로">▲</button>
+    <button data-k="KeyA" aria-label="왼쪽">◀</button>
+    <button data-k="KeyS" aria-label="뒤로">▼</button>
+    <button data-k="KeyD" aria-label="오른쪽">▶</button>
+    <button id="padUse" aria-label="문 열기, 조명">E</button>
+  </div>
+</div>
+
+<div class="selbar" id="selbar" hidden>
+  <div class="card">
+    <div class="seltop">
+      <span class="selname" id="selName"></span>
+      <span class="selsize" id="selSize"></span>
+      <button id="lampBtn" aria-pressed="true" hidden>불 끄기</button>
+      <button id="doorBtn" aria-pressed="false" hidden>문 열기</button>
+      <button class="ghost danger" id="delRoomBtn" hidden>방 전체 삭제</button>
+      <button class="ghost danger" id="delBtn">삭제</button>
+    </div>
+    <div class="slider">
+      <label for="angIn">각도</label>
+      <input id="angIn" type="range" min="0" max="359" step="1" value="0">
+      <output id="angOut">0°</output>
+      <span class="steps"><button id="angMinus" aria-label="15도 반시계">−15°</button><button id="angPlus" aria-label="15도 시계">+15°</button></span>
+    </div>
+    <div class="row" id="bathPosRow" role="group" aria-label="화장실 위치" style="margin-bottom:6px">
+      <span class="optlabel" style="width:58px">위치</span>
+      <button data-corner="lt">왼쪽 위</button><button data-corner="rt">오른쪽 위</button>
+      <button data-corner="lb">왼쪽 아래</button><button data-corner="rb">오른쪽 아래</button>
+    </div>
+    <div class="slider" id="liftRow"><label for="liftIn">놓는 높이</label><input id="liftIn" type="range" min="0" max="1.5" step="0.01"><output id="liftOut"></output><span></span></div>
+    <div id="sizeRows">
+      <div class="slider"><label for="wIn">가로</label><input id="wIn" type="range" min="0.2" max="3" step="0.05"><output id="wOut"></output><span></span></div>
+      <div class="slider"><label for="dIn">세로</label><input id="dIn" type="range" min="0.2" max="3" step="0.05"><output id="dOut"></output><span></span></div>
+      <div class="slider" id="hRow"><label for="hIn">높이</label><input id="hIn" type="range" min="0.2" max="2.4" step="0.05"><output id="hOut"></output><span></span></div>
+    </div>
+    <div id="colorRow">
+      <div class="colorhead"><span class="clabel">색상</span><span class="parts" id="partRow" role="group" aria-label="색을 바꿀 부분"></span><button class="ghost" id="colorReset">원래 색</button></div>
+      <div class="fsws" id="furnSw"></div>
+    </div>
+    <div class="slider" id="lenRow">
+      <label for="lenIn">길이</label>
+      <input id="lenIn" type="range" min="0.3" max="8" step="0.05" value="1">
+      <output id="lenOut"></output>
+      <span></span>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  const H = 2.4, T = 0.1, DEG = Math.PI / 180;
+  const MIN_W = 2.0, MIN_D = 2.5, MAX_W = 9, MAX_D = 12;
+  const R0 = { xMin: -1.8, xMax: 1.8, zMin: -3, zMax: 3 };
+  const R = Object.assign({}, R0);
+  const WIN_PRESETS = {
+    normal: { w: 1.8, h: 1.2, sill: 0.9, off: 0 },
+    small: { w: 0.9, h: 0.9, sill: 1.1, off: 0 },
+    full: { w: 99, h: 2.3, sill: 0.03, off: 0 }
+  };
+  // windows: wall = n/s/e/w, pos = offset along the wall from its centre (seen from inside), curtain 0 closed .. 1 open
+  const WINS = [{ wall: 'n', w: 1.8, h: 1.2, sill: 0.9, pos: 0, curtain: 1 }];
+  let selWin = 0, winActive = false;
+  const FACE_ANGLE = { N: 0, E: 90, S: 180, W: 270 };
+  let face = 'S', entranceOpen = false;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- renderer ----------
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.localClippingEnabled = true;
+  $('stage').appendChild(renderer.domElement);
+  const canvas = renderer.domElement;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xDCE3E6);
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 120);
+  const controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.minDistance = 2.5; controls.maxDistance = 22;
+  controls.maxPolarAngle = Math.PI * 0.49;
+
+  // ---------- helpers ----------
+  function mat(color, extra) {
+    return new THREE.MeshStandardMaterial(Object.assign({ color: color, roughness: 0.8, metalness: 0 }, extra || {}));
+  }
+  function addMesh(parent, geo, material, x, y, z) {
+    const m = new THREE.Mesh(geo, material);
+    m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
+    m.userData.mat = material; parent.add(m); return m;
+  }
+  function box(parent, w, h, d, material, x, y, z) {
+    return addMesh(parent, new THREE.BoxGeometry(w, h, d), material, x || 0, (y || 0) + h / 2, z || 0);
+  }
+  function seg(parent, x1, x2, z1, z2, y1, y2, material) {
+    return addMesh(parent, new THREE.BoxGeometry(x2 - x1, y2 - y1, z2 - z1), material, (x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
+  }
+  function cyl(parent, rt, rb, h, material, x, y, z) {
+    return addMesh(parent, new THREE.CylinderGeometry(rt, rb, h, 24), material, x || 0, (y || 0) + h / 2, z || 0);
+  }
+  function disposeTree(o) { o.traverse(function (c) { if (c.geometry) c.geometry.dispose(); }); }
+  function clearGroup(g) { while (g.children.length) { const c = g.children.pop(); disposeTree(c); } }
+  const clamp01 = (x) => Math.min(1, Math.max(0, x));
+  const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+  const snap = (v, s) => Math.round(v / (s || 0.05)) * (s || 0.05);
+
+  function canvasTex(size, draw) {
+    const c = document.createElement('canvas'); c.width = c.height = size;
+    draw(c.getContext('2d'), size);
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
+    return tex;
+  }
+  function woodTex(h, s, l, plankRows) {
+    return canvasTex(512, function (g, S) {
+      const rows = plankRows || 8, rh = S / rows;
+      let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+      for (let r = 0; r < rows; r++) {
+        let x = -rnd() * 256;
+        while (x < S) {
+          const len = 170 + rnd() * 160, ll = l + (rnd() * 8 - 4);
+          g.fillStyle = 'hsl(' + h + ',' + s + '%,' + ll + '%)'; g.fillRect(x, r * rh, len, rh);
+          for (let i = 0; i < 10; i++) { g.fillStyle = 'rgba(60,40,20,' + (0.04 + rnd() * 0.06) + ')'; g.fillRect(x, r * rh + rnd() * rh, len, 1); }
+          g.fillStyle = 'rgba(40,25,10,0.35)'; g.fillRect(x, r * rh, 2, rh);
+          x += len;
+        }
+        g.fillStyle = 'rgba(40,25,10,0.3)'; g.fillRect(0, r * rh, S, 1.5);
+      }
+    });
+  }
+  function tileTex(bg, grout, n, speckle) {
+    return canvasTex(512, function (g, S) {
+      g.fillStyle = bg; g.fillRect(0, 0, S, S);
+      if (speckle) { for (let i = 0; i < 2500; i++) { g.fillStyle = 'rgba(0,0,0,' + Math.random() * 0.06 + ')'; g.fillRect(Math.random() * S, Math.random() * S, 2, 2); } }
+      g.strokeStyle = grout; g.lineWidth = 4; const c = S / n;
+      for (let i = 0; i <= n; i++) {
+        g.beginPath(); g.moveTo(i * c, 0); g.lineTo(i * c, S); g.stroke();
+        g.beginPath(); g.moveTo(0, i * c); g.lineTo(S, i * c); g.stroke();
+      }
+    });
+  }
+  function shade(hex, k) { const c = new THREE.Color(hex); c.multiplyScalar(k); return '#' + c.getHexString(); }
+  function woodFromHex(hex) { const hsl = {}; new THREE.Color(hex).getHSL(hsl); return woodTex(hsl.h * 360, hsl.s * 100, hsl.l * 100); }
+  function wallTileTex(bg, grout) {   // 30 x 60 cm wall tiles, texture = 60 x 60 cm
+    return canvasTex(512, function (g, S) {
+      g.fillStyle = bg; g.fillRect(0, 0, S, S);
+      g.strokeStyle = grout; g.lineWidth = 4;
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(S, 0); g.moveTo(0, S / 2); g.lineTo(S, S / 2); g.stroke();
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(0, S / 2); g.moveTo(S / 2, S / 2); g.lineTo(S / 2, S); g.stroke();
+      g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(4, 4, S - 8, S / 2 - 8);
+    });
+  }
+  function scaleUV(geo, sx, sy) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * sx, uv.getY(i) * sy); return geo; }
+  function vinylTex(hex) {
+    return canvasTex(256, function (g, S) {
+      g.fillStyle = hex || '#D8C6A4'; g.fillRect(0, 0, S, S);
+      for (let i = 0; i < 1800; i++) { g.fillStyle = 'rgba(120,90,50,' + Math.random() * 0.08 + ')'; g.fillRect(Math.random() * S, Math.random() * S, 3, 1); }
+    });
+  }
+
+  // ---------- materials ----------
+  const M = {
+    wall: mat(0xF1EFEA, { roughness: 0.95 }),
+    base: mat(0x9AA3A8),
+    floor: mat(0xffffff, { roughness: 0.7 }),
+    tile: mat(0xffffff, { map: tileTex('#D9DEE0', '#AEB6BA', 4), roughness: 0.5 }),
+    bathWall: mat(0xffffff, { map: wallTileTex('#EEF0F0', '#C9CFD2'), roughness: 0.35 }),
+    entryTile: mat(0x8E959A, { roughness: 0.6 }),
+    oak: mat(0xB68A5E, { roughness: 0.65 }), oakDark: mat(0x7A583B, { roughness: 0.6 }),
+    white: mat(0xEEECE7, { roughness: 0.6 }), cabinet: mat(0xE4E6E5, { roughness: 0.5 }),
+    counterTop: mat(0x55595C, { roughness: 0.4 }), black: mat(0x1D2023, { roughness: 0.3 }),
+    steel: mat(0xC4C9CC, { roughness: 0.3, metalness: 0.6 }), fridge: mat(0xD6DADC, { roughness: 0.35, metalness: 0.2 }),
+    bedding: mat(0x8FA3B8, { roughness: 0.95 }), sheet: mat(0xF6F4EF, { roughness: 0.95 }),
+    rug: mat(0xA9B49D, { roughness: 1 }), fabric: mat(0x7D8B8F, { roughness: 1 }),
+    porcelain: mat(0xF7F7F5, { roughness: 0.25 }), handle: mat(0x6E7478, { roughness: 0.3, metalness: 0.7 }),
+    frame: mat(0xE9EAEA, { roughness: 0.5 }), panel: mat(0xF5F5F2, { roughness: 0.7 }),
+    glass: new THREE.MeshStandardMaterial({ color: 0xBFD6E6, transparent: true, opacity: 0.22, roughness: 0.05 }),
+    curtain: mat(0xE8DFD0, { roughness: 1, side: THREE.DoubleSide, emissive: 0xFFE3C4, emissiveIntensity: 0 }),
+    screen: mat(0x101418, { roughness: 0.2 }), lampShade: mat(0xF3E7D0, { roughness: 0.9 }),
+    books: [0x7C8FA8, 0xB36A5E, 0xD8C39A, 0x5E7A66, 0x9A7FB0].map((c) => mat(c, { roughness: 0.8 })),
+    door: mat(0x7A583B, { roughness: 0.6 }), rod: mat(0x6E7478, { roughness: 0.3, metalness: 0.7 }),
+    upper: mat(0xE4E6E5, { roughness: 0.5 }),
+    showerGlass: new THREE.MeshStandardMaterial({ color: 0xCFE3EC, transparent: true, opacity: 0.2, roughness: 0.05 }),
+    mirror: mat(0xCBD6DC, { roughness: 0.05, metalness: 0.9 }),
+    fixtureHigh: mat(0xC4C9CC, { roughness: 0.3, metalness: 0.6 }),
+    hose: mat(0x9AA1A6, { roughness: 0.4, metalness: 0.5 }),
+    acWhite: mat(0xF4F5F4, { roughness: 0.5 }),
+    wallpad: mat(0x2B3035, { roughness: 0.3 }),
+    towel: mat(0x9BB5C9, { roughness: 1 }), towel2: mat(0xE9E4DA, { roughness: 1 }),
+    bin: mat(0xA9B0B4, { roughness: 0.5 }), paper: mat(0xFAFAF7, { roughness: 1 }),
+    basinIn: mat(0xE3E6E6, { roughness: 0.2 }),
+    showerTile: mat(0xffffff, { map: tileTex('#BCC4C8', '#939CA1', 6), roughness: 0.5 }),
+    bottles: [0x6F9FB8, 0xE3B96A, 0xF2F2EE, 0x8FB592].map((c) => mat(c, { roughness: 0.4 })),
+    moodGlass: mat(0xFFB38A, { roughness: 0.3 }),
+    deskShade: mat(0xEDEAE3, { roughness: 0.5 }),
+    floorShade: mat(0xF1E6D2, { roughness: 0.9, side: THREE.DoubleSide }),
+    ceilVis: mat(0xF6F5F1, { roughness: 0.95 }),
+    glassSel: new THREE.MeshStandardMaterial({ color: 0x6F8CE0, transparent: true, opacity: 0.4, roughness: 0.05 }),
+    hiddenWall: new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })
+  };
+
+  // ---------- floor & wallpaper options ----------
+  const FLOORS = [
+    { key: 'oakLight', label: '밝은 원목', chip: '#C9A57A', kind: 'wood', m: 3, make: () => woodTex(33, 40, 64) },
+    { key: 'walnut', label: '진한 원목', chip: '#6E4B32', kind: 'wood', m: 3, make: () => woodTex(24, 34, 32) },
+    { key: 'ash', label: '화이트 워시', chip: '#DCD3C6', kind: 'wood', m: 3, make: () => woodTex(35, 18, 82) },
+    { key: 'tileW', label: '화이트 타일', chip: '#E8EAEA', kind: 'tile', m: 1.2, make: () => tileTex('#E9EBEB', '#C2C8CB', 4) },
+    { key: 'tileG', label: '그레이 포세린', chip: '#9EA3A6', kind: 'porcelain', m: 1.2, make: () => tileTex('#A2A7AA', '#83898D', 2, true) },
+    { key: 'vinyl', label: '장판', chip: '#D8C6A4', kind: 'vinyl', m: 1, make: () => vinylTex() }
+  ];
+  FLOORS.forEach((f) => { f.tex = null; });
+  const FLOOR_MAKERS = {
+    wood: (hex) => woodFromHex(hex),
+    tile: (hex) => tileTex(hex, shade(hex, 0.8), 4),
+    porcelain: (hex) => tileTex(hex, shade(hex, 0.8), 2, true),
+    vinyl: (hex) => vinylTex(hex)
+  };
+  const TILE_COLORS = [['화이트', '#eef0f0'], ['라이트 그레이', '#cfd4d6'], ['그레이', '#9aa1a5'], ['차콜', '#4a4f53'],
+                       ['베이지', '#ddd2c1'], ['민트', '#bfd8d0'], ['블루', '#afc4d8'], ['핑크', '#e6cdc8']];
+  let floorOpt = FLOORS[0];
+  const WALLPAPERS = [
+    ['화이트', '#F1EFEA'], ['라이트 그레이', '#D9DBDA'], ['세이지', '#C9D3C3'],
+    ['스카이', '#CBD8E3'], ['베이지', '#E6D8C3'], ['로즈', '#E7CFCB']
+  ];
+
+  // ---------- furniture catalog ----------
+  function bedBuilder(w) {
+    return function (g) {
+      box(g, w, 0.28, 2.0, M.oak, 0, 0, 0);
+      box(g, w - 0.06, 0.2, 1.94, M.sheet, 0, 0.28, 0);
+      box(g, w - 0.02, 0.06, 1.3, M.bedding, 0, 0.47, 0.34);
+      if (w > 1.3) { box(g, w * 0.4, 0.1, 0.34, M.sheet, -w * 0.24, 0.48, -0.72); box(g, w * 0.4, 0.1, 0.34, M.sheet, w * 0.24, 0.48, -0.72); }
+      else box(g, 0.62, 0.1, 0.34, M.sheet, 0, 0.48, -0.72);
+      box(g, w, 0.95, 0.06, M.oak, 0, 0, -0.97);
+    };
+  }
+  function legs4(g, w, d, h, m) {
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (p) { box(g, 0.04, h, 0.04, m, p[0] * (w / 2 - 0.04), 0, p[1] * (d / 2 - 0.04)); });
+  }
+  const FURN = {
+    bedSS: { name: '침대 (슈퍼싱글)', parts: [['프레임', 'oak'], ['이불', 'bedding']], w: 1.1, d: 2.0, h: 0.95, build: bedBuilder(1.1) },
+    bedQ: { name: '침대 (퀸)', parts: [['프레임', 'oak'], ['이불', 'bedding']], w: 1.5, d: 2.0, h: 0.95, build: bedBuilder(1.5) },
+    nightstand: { name: '협탁', parts: [['본체', 'oak']], w: 0.4, d: 0.4, h: 0.5, build: function (g) {
+      box(g, 0.4, 0.5, 0.4, M.oak, 0, 0, 0);
+      box(g, 0.36, 0.01, 0.01, M.oakDark, 0, 0.3, 0.2);
+      cyl(g, 0.05, 0.07, 0.03, M.handle, 0.08, 0.5, -0.05);
+      cyl(g, 0.01, 0.01, 0.22, M.handle, 0.08, 0.53, -0.05);
+      g.userData.lamp = cyl(g, 0.09, 0.13, 0.16, M.lampShade, 0.08, 0.72, -0.05);
+      box(g, 0.12, 0.07, 0.22, M.white, -0.11, 0.5, 0.05);            // tissue box
+      box(g, 0.05, 0.04, 0.03, M.paper, -0.11, 0.57, 0.05);
+    } },
+    desk: { name: '책상', parts: [['상판', 'oak'], ['다리', 'oakDark']], w: 1.2, d: 0.6, h: 0.75, build: function (g) {
+      box(g, 1.2, 0.03, 0.6, M.oak, 0, 0.72, 0); legs4(g, 1.2, 0.6, 0.72, M.oakDark);
+      box(g, 0.2, 0.01, 0.15, M.handle, 0, 0.75, -0.15); box(g, 0.03, 0.14, 0.03, M.handle, 0, 0.75, -0.17);
+      box(g, 0.6, 0.36, 0.03, M.black, 0, 0.87, -0.18);
+      box(g, 0.57, 0.33, 0.005, M.screen, 0, 0.885, -0.163).castShadow = false;
+      box(g, 0.42, 0.015, 0.14, M.white, 0, 0.75, 0.1);
+    } },
+    chair: { name: '의자', parts: [['본체', 'oakDark']], w: 0.45, d: 0.45, h: 0.9, build: function (g) {
+      box(g, 0.45, 0.05, 0.45, M.oakDark, 0, 0.43, 0); legs4(g, 0.45, 0.45, 0.43, M.oakDark);
+      box(g, 0.45, 0.42, 0.04, M.oakDark, 0, 0.48, 0.2);
+    } },
+    wardrobe: { name: '옷장', parts: [['본체', 'white']], w: 1.2, d: 0.6, h: 2.0, build: function (g) {
+      box(g, 1.2, 2.0, 0.6, M.white, 0, 0, 0);
+      box(g, 0.006, 1.9, 0.01, M.base, 0, 0.05, 0.3);
+      box(g, 0.02, 0.3, 0.02, M.handle, -0.05, 0.9, 0.31); box(g, 0.02, 0.3, 0.02, M.handle, 0.05, 0.9, 0.31);
+    } },
+    drawer: { name: '서랍장', parts: [['본체', 'white']], w: 0.8, d: 0.45, h: 0.9, build: function (g) {
+      box(g, 0.8, 0.9, 0.45, M.white, 0, 0, 0);
+      [0.3, 0.6].forEach((y) => box(g, 0.78, 0.008, 0.01, M.base, 0, y, 0.225));
+      [0.15, 0.45, 0.75].forEach((y) => box(g, 0.16, 0.02, 0.02, M.handle, 0, y, 0.235));
+    } },
+    bookshelf: { name: '책장', parts: [['본체', 'oak']], w: 0.8, d: 0.3, h: 1.8, build: function (g) {
+      box(g, 0.02, 1.8, 0.3, M.oak, -0.39, 0, 0); box(g, 0.02, 1.8, 0.3, M.oak, 0.39, 0, 0);
+      box(g, 0.8, 1.8, 0.01, M.oak, 0, 0, -0.145);
+      [0, 0.45, 0.9, 1.35, 1.78].forEach((y) => box(g, 0.8, 0.02, 0.3, M.oak, 0, y, 0));
+      let k = 0;
+      [0.02, 0.47, 0.92].forEach(function (y) {
+        let x = -0.36;
+        while (x < 0.3) { const bw = 0.03 + ((k * 7) % 3) * 0.01, bh = 0.25 + ((k * 5) % 4) * 0.03;
+          box(g, bw, bh, 0.22, M.books[k % 5], x + bw / 2, y, 0); x += bw + 0.004; k++; }
+      });
+    } },
+    sofa: { name: '소파 (2인)', parts: [['천', 'fabric'], ['다리', 'oakDark']], w: 1.6, d: 0.8, h: 0.78, build: function (g) {
+      legs4(g, 1.5, 0.7, 0.08, M.oakDark);
+      box(g, 1.6, 0.25, 0.8, M.fabric, 0, 0.08, 0);
+      box(g, 1.36, 0.12, 0.6, M.fabric, 0, 0.33, 0.07);
+      box(g, 1.6, 0.45, 0.18, M.fabric, 0, 0.33, -0.31);
+      box(g, 0.12, 0.28, 0.8, M.fabric, -0.74, 0.33, 0); box(g, 0.12, 0.28, 0.8, M.fabric, 0.74, 0.33, 0);
+    } },
+    tv: { name: 'TV장', parts: [['본체', 'oak'], ['다리', 'oakDark']], w: 1.4, d: 0.4, h: 0.45, build: function (g) {
+      box(g, 1.4, 0.42, 0.4, M.oak, 0, 0.03, 0); legs4(g, 1.36, 0.36, 0.03, M.oakDark);
+      box(g, 0.3, 0.02, 0.18, M.black, 0, 0.45, -0.05); box(g, 0.05, 0.08, 0.03, M.black, 0, 0.47, -0.05);
+      box(g, 1.1, 0.64, 0.04, M.black, 0, 0.55, -0.05);
+      box(g, 1.06, 0.6, 0.005, M.screen, 0, 0.57, -0.028).castShadow = false;
+    } },
+    rug: { name: '러그', parts: [['러그', 'rug']], w: 1.4, d: 1.0, h: 0, build: function (g) { box(g, 1.4, 0.012, 1.0, M.rug, 0, 0.002, 0).castShadow = false; } },
+    lowtable: { name: '좌식 테이블', parts: [['상판', 'oak'], ['다리', 'oakDark']], w: 0.8, d: 0.5, h: 0.35, build: function (g) {
+      box(g, 0.8, 0.03, 0.5, M.oak, 0, 0.32, 0); legs4(g, 0.8, 0.5, 0.32, M.oakDark);
+    } },
+    mood: { name: '무드등', parts: [['빛 색', 'moodGlass'], ['받침', 'oak']], w: 0.2, d: 0.2, h: 0.25, liftable: true, onTop: true,
+      light: { part: 0, follow: true, y: 0.15, z: 0, intensity: 0.8, dist: 2.6 }, build: function (g) {
+      cyl(g, 0.07, 0.085, 0.05, M.oak, 0, 0, 0);
+      addMesh(g, new THREE.SphereGeometry(0.1, 28, 18), M.moodGlass, 0, 0.14, 0).castShadow = false;
+    } },
+    floorlamp: { name: '장스탠드', parts: [['갓', 'floorShade'], ['기둥', 'handle']], w: 0.42, d: 0.42, h: 1.62,
+      light: { part: 0, follow: false, y: 1.38, z: 0, intensity: 1.1, dist: 4.5 }, build: function (g) {
+      cyl(g, 0.16, 0.17, 0.03, M.handle, 0, 0, 0);
+      cyl(g, 0.012, 0.012, 1.36, M.handle, 0, 0.03, 0);
+      const sh = addMesh(g, new THREE.CylinderGeometry(0.13, 0.21, 0.28, 32, 1, true), M.floorShade, 0, 1.47, 0); sh.castShadow = false;
+      cyl(g, 0.02, 0.02, 0.05, M.deskShade, 0, 1.36, 0);
+    } },
+    desklamp: { name: '책상 스탠드', parts: [['갓', 'deskShade'], ['몸체', 'handle']], w: 0.2, d: 0.32, h: 0.45, liftable: true, onTop: true, lift: 0.75,
+      light: { part: 0, follow: false, y: 0.32, z: 0.1, intensity: 0.8, dist: 2.4 }, build: function (g) {
+      cyl(g, 0.08, 0.09, 0.02, M.handle, 0, 0, -0.09);
+      const a1 = box(g, 0.014, 0.34, 0.014, M.handle, 0, 0.02, -0.06); a1.rotation.x = 0.28;
+      const a2 = box(g, 0.014, 0.014, 0.2, M.handle, 0, 0.39, 0.0);
+      const head = cyl(g, 0.028, 0.065, 0.09, M.deskShade, 0, 0.3, 0.1); head.castShadow = false;
+    } }
+  };
+  Object.assign(FURN, {
+    kitchen: { name: '주방 (싱크대·인덕션)', parts: [['하부장', 'cabinet'], ['상판', 'counterTop'], ['상부장', 'upper']], w: 1.8, d: 0.6, h: 2.2, build: function (g) {
+      seg(g, -0.9, 0.9, -0.3, 0.3, 0, 0.82, M.cabinet);
+      seg(g, -0.91, 0.91, -0.3, 0.32, 0.82, 0.86, M.counterTop);
+      seg(g, -0.72, -0.32, -0.2, 0.2, 0.86, 0.865, M.steel);                          // sink bowl
+      cyl(g, 0.015, 0.015, 0.28, M.steel, -0.52, 0.86, -0.25);                          // faucet
+      seg(g, -0.53, -0.51, -0.25, -0.1, 1.12, 1.14, M.steel);
+      seg(g, 0.15, 0.7, -0.22, 0.2, 0.86, 0.87, M.black);                              // induction
+      [0.3, 0.55].forEach((x) => cyl(g, 0.09, 0.09, 0.003, M.hose, x - 0.02, 0.87, 0));
+      [-0.3, 0.3].forEach((x) => seg(g, x - 0.004, x + 0.004, 0.3, 0.305, 0.08, 0.8, M.base));
+      seg(g, -0.9, 0.9, -0.3, 0.05, 1.5, 2.2, M.upper);                                // upper cabinet
+      seg(g, 0.15, 0.7, -0.3, 0.2, 1.42, 1.5, M.fixtureHigh);                          // range hood
+      cyl(g, 0.07, 0.08, 0.2, M.steel, -0.08, 0.86, -0.1);                              // kettle
+      cyl(g, 0.015, 0.015, 0.03, M.black, -0.08, 1.06, -0.1);
+      seg(g, -0.28, -0.06, -0.15, 0.17, 0.86, 0.88, M.oak);                            // cutting board
+      cyl(g, 0.11, 0.11, 0.08, M.black, 0.45, 0.87, 0);                                // pan
+    } },
+    fridge: { name: '냉장고', parts: [['본체', 'fridge']], w: 0.68, d: 0.65, h: 1.55, build: function (g) {
+      box(g, 0.68, 1.55, 0.65, M.fridge, 0, 0, 0);
+      seg(g, -0.34, 0.34, 0.325, 0.33, 1.0, 1.005, M.base);
+      seg(g, -0.24, -0.21, 0.325, 0.345, 0.6, 0.95, M.handle);
+      seg(g, -0.24, -0.21, 0.325, 0.345, 1.08, 1.4, M.handle);
+    } },
+    microwave: { name: '전자레인지', parts: [['본체', 'black']], w: 0.42, d: 0.45, h: 0.27, liftable: true, onTop: true, lift: 0, build: function (g) {
+      box(g, 0.42, 0.27, 0.45, M.black, 0, 0, 0);
+      seg(g, -0.18, 0.08, 0.225, 0.23, 0.04, 0.23, M.basinIn);
+      cyl(g, 0.015, 0.015, 0.02, M.steel, 0.15, 0.17, 0.225).rotation.x = Math.PI / 2;
+    } },
+    shoes: { name: '신발장', parts: [['본체', 'cabinet']], w: 0.65, d: 0.32, h: 1.05, build: function (g) {
+      box(g, 0.65, 1.05, 0.32, M.cabinet, 0, 0, 0);
+      seg(g, -0.003, 0.003, 0.16, 0.165, 0.03, 1.02, M.base);
+      seg(g, -0.05, -0.03, 0.16, 0.175, 0.45, 0.6, M.handle); seg(g, 0.03, 0.05, 0.16, 0.175, 0.45, 0.6, M.handle);
+    } },
+    bathroom: { name: '화장실 (벽·문)', w: 1.6, d: 1.8, h: 0, rebuild: true, minW: 1.0, minD: 1.3, build: function (g, w, d) {
+      w = w || 1.6; d = d || 1.8;
+      const t = 0.08, hw = w / 2, hd = d / 2, d1 = hd - 1.0, d2 = hd - 0.2;
+      seg(g, -hw, hw, -hd, -hd + t, 0, H, M.wall);
+      seg(g, -hw, hw, hd - t, hd, 0, H, M.wall);
+      seg(g, hw - t, hw, -hd + t, hd - t, 0, H, M.wall);
+      seg(g, -hw, -hw + t, -hd + t, d1, 0, H, M.wall);
+      seg(g, -hw, -hw + t, d2, hd - t, 0, H, M.wall);
+      seg(g, -hw, -hw + t, d1, d2, 2.1, H, M.wall);
+      const bh = new THREE.Group(); bh.position.set(-hw + 0.04, 0, d1); bh.rotation.y = arguments[3] && arguments[3].open ? 1.35 : 0; g.add(bh);
+      const bp = seg(bh, -0.02, 0.02, 0, d2 - d1, 0, 2.08, M.door); bp.userData.bathDoor = true;
+      const bk1 = seg(bh, -0.06, -0.02, d2 - d1 - 0.12, d2 - d1 - 0.05, 0.98, 1.0, M.handle); bk1.userData.bathDoor = true;
+      const bk2 = seg(bh, 0.02, 0.06, d2 - d1 - 0.12, d2 - d1 - 0.05, 0.98, 1.0, M.handle); bk2.userData.bathDoor = true;
+      const f = new THREE.Mesh(scaleUV(new THREE.PlaneGeometry(w - 2 * t, d - 2 * t), (w - 2 * t) / 1.2, (d - 2 * t) / 1.2), M.tile);
+      f.rotation.x = -Math.PI / 2; f.position.y = 0.004; f.receiveShadow = true; f.userData.mat = M.tile; g.add(f);
+      // wall tiles lining the inside faces
+      const e = 0.003, iw = w - 2 * t, id = d - 2 * t;
+      const lining = function (width, height, x, y, z, ry) {
+        const m = new THREE.Mesh(scaleUV(new THREE.PlaneGeometry(width, height), width / 0.6, height / 0.6), M.bathWall);
+        m.position.set(x, y, z); m.rotation.y = ry; m.receiveShadow = true; m.userData.mat = M.bathWall; g.add(m);
+      };
+      lining(iw, H, 0, H / 2, -hd + t + e, 0);                       // back
+      lining(iw, H, 0, H / 2, hd - t - e, Math.PI);                  // front
+      lining(id, H, hw - t - e, H / 2, 0, -Math.PI / 2);             // right
+      const wl1 = d1 - (-hd + t), wl2 = (hd - t) - d2;              // left wall, around the door
+      if (wl1 > 0.01) lining(wl1, H, -hw + t + e, H / 2, (-hd + t + d1) / 2, Math.PI / 2);
+      if (wl2 > 0.01) lining(wl2, H, -hw + t + e, H / 2, (d2 + hd - t) / 2, Math.PI / 2);
+      lining(d2 - d1, H - 2.1, -hw + t + e, (2.1 + H) / 2, (d1 + d2) / 2, Math.PI / 2);
+    } },
+    toilet: { name: '변기', parts: [['본체', 'porcelain']], w: 0.42, d: 0.7, h: 0.85, build: function (g) {
+      box(g, 0.4, 0.38, 0.17, M.porcelain, 0, 0.42, -0.265);
+      box(g, 0.42, 0.03, 0.19, M.porcelain, 0, 0.8, -0.265);
+      cyl(g, 0.025, 0.025, 0.012, M.fixtureHigh, 0, 0.83, -0.265);
+      cyl(g, 0.12, 0.15, 0.2, M.porcelain, 0, 0, 0).scale.z = 1.25;
+      cyl(g, 0.19, 0.14, 0.2, M.porcelain, 0, 0.19, 0.05).scale.z = 1.3;
+      const seat = addMesh(g, new THREE.TorusGeometry(0.155, 0.028, 10, 32), M.porcelain, 0, 0.405, 0.06);
+      seat.rotation.x = Math.PI / 2; seat.scale.y = 1.28;
+      cyl(g, 0.18, 0.18, 0.018, M.porcelain, 0, 0.43, 0.06).scale.z = 1.28;
+      cyl(g, 0.055, 0.055, 0.1, M.paper, 0.12, 0.815, -0.24);                           // spare roll
+    } },
+    paper: { name: '휴지걸이', w: 0.18, d: 0.15, h: 0.18, liftable: true, lift: 0.55, build: function (g) {
+      seg(g, -0.09, 0.09, -0.075, -0.06, 0.06, 0.17, M.fixtureHigh);
+      seg(g, -0.09, 0.09, -0.075, 0.065, 0.165, 0.175, M.fixtureHigh);
+      const r = cyl(g, 0.055, 0.055, 0.12, M.paper, 0, 0, 0); r.rotation.z = Math.PI / 2; r.position.set(0, 0.105, 0);
+      seg(g, -0.04, 0.04, 0.052, 0.056, 0, 0.1, M.paper);
+    } },
+    sink: { name: '세면대 (거울 포함)', parts: [['수납장', 'white'], ['세면대', 'porcelain']], w: 0.54, d: 0.42, h: 1.85, build: function (g) {
+      box(g, 0.5, 0.55, 0.4, M.white, 0, 0.25, -0.01);
+      box(g, 0.52, 0.1, 0.42, M.porcelain, 0, 0.8, 0);
+      const bi = cyl(g, 0.16, 0.16, 0.005, M.basinIn, 0, 0.9, 0.03); bi.scale.z = 0.75; bi.castShadow = false;
+      cyl(g, 0.014, 0.014, 0.16, M.fixtureHigh, 0, 0.9, -0.15);
+      seg(g, -0.012, 0.012, -0.16, -0.05, 1.04, 1.06, M.fixtureHigh);
+      seg(g, 0.04, 0.1, -0.16, -0.14, 1.0, 1.015, M.fixtureHigh);
+      seg(g, -0.27, 0.27, -0.21, -0.09, 1.1, 1.85, M.white);
+      seg(g, -0.25, 0.25, -0.09, -0.085, 1.12, 1.83, M.mirror);
+      cyl(g, 0.02, 0.02, 0.12, M.bottles[0], 0.18, 0.9, -0.13);
+      cyl(g, 0.035, 0.03, 0.1, M.bottles[2], -0.18, 0.9, -0.13);
+    } },
+    shower: { name: '샤워부스', w: 0.9, d: 0.9, h: 2.15, build: function (g) {
+      const sf = new THREE.Mesh(scaleUV(new THREE.PlaneGeometry(0.9, 0.9), 1, 1), M.showerTile);
+      sf.rotation.x = -Math.PI / 2; sf.position.y = 0.006; sf.receiveShadow = true; sf.userData.mat = M.showerTile; g.add(sf);
+      seg(g, -0.06, 0.06, -0.06, 0.06, 0.006, 0.009, M.steel);                          // drain
+      seg(g, -0.45, 0.45, 0.44, 0.45, 0.01, 1.95, M.showerGlass).castShadow = false;       // glass panel
+      seg(g, -0.45, 0.45, 0.438, 0.452, 1.95, 1.97, M.fixtureHigh);
+      seg(g, 0.41, 0.43, -0.012, 0.012, 1.0, 1.9, M.fixtureHigh);                          // slide bar
+      seg(g, 0.38, 0.45, -0.13, 0.13, 1.0, 1.08, M.fixtureHigh);                           // mixer
+      seg(g, 0.32, 0.38, 0.07, 0.09, 1.03, 1.05, M.fixtureHigh);
+      cyl(g, 0.018, 0.03, 0.22, M.fixtureHigh, 0.37, 1.5, 0).rotation.z = 0.35;           // handheld
+      cyl(g, 0.045, 0.045, 0.02, M.fixtureHigh, 0.32, 1.72, 0).rotation.z = Math.PI / 2 + 0.35;
+      addMesh(g, new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.4, 1.0, 0.1), new THREE.Vector3(0.33, 0.62, 0.2),
+        new THREE.Vector3(0.25, 0.75, 0.05), new THREE.Vector3(0.39, 1.5, 0)]), 24, 0.009, 6), M.hose, 0, 0, 0);
+      seg(g, 0, 0.45, -0.012, 0.012, 2.13, 2.15, M.fixtureHigh);                           // rain arm
+      cyl(g, 0.12, 0.12, 0.015, M.fixtureHigh, 0, 2.11, 0);                                // rain head
+      seg(g, 0.23, 0.45, -0.45, -0.31, 1.2, 1.215, M.fixtureHigh);                         // shelf
+      [[0.4, 0.2, 0], [0.34, 0.16, 1], [0.28, 0.12, 2]].forEach((b) => cyl(g, 0.025, 0.025, b[1], M.bottles[b[2]], b[0], 1.215, -0.39));
+    } },
+    towelbar: { name: '수건걸이', parts: [['수건', 'towel2']], w: 0.44, d: 0.08, h: 0.52, liftable: true, lift: 0.6, build: function (g) {
+      seg(g, -0.22, 0.22, -0.01, 0.02, 0.5, 0.52, M.fixtureHigh);
+      seg(g, -0.22, -0.2, -0.04, 0.02, 0.49, 0.53, M.fixtureHigh); seg(g, 0.2, 0.22, -0.04, 0.02, 0.49, 0.53, M.fixtureHigh);
+      box(g, 0.36, 0.5, 0.035, M.towel2, 0, 0.01, 0.005);
+    } },
+    trash: { name: '휴지통', parts: [['통', 'bin']], w: 0.2, d: 0.2, h: 0.28, build: function (g) {
+      cyl(g, 0.1, 0.085, 0.28, M.bin, 0, 0, 0);
+      cyl(g, 0.103, 0.103, 0.015, M.hose, 0, 0.28, 0);
+    } },
+    bathmat: { name: '발매트', parts: [['매트', 'towel']], w: 0.32, d: 0.45, h: 0, build: function (g) {
+      box(g, 0.32, 0.012, 0.45, M.towel, 0, 0.002, 0).castShadow = false;
+    } }
+  });
+  function doorFrame(g, w) {
+    const hw = w / 2;
+    seg(g, -hw, -hw + 0.05, -0.06, 0.06, 0, 2.15, M.frame);
+    seg(g, hw - 0.05, hw, -0.06, 0.06, 0, 2.15, M.frame);
+    seg(g, -hw, hw, -0.06, 0.06, 2.1, 2.15, M.frame);
+  }
+  Object.assign(FURN, {
+    door: { name: '여닫이문', parts: [['문', 'door'], ['문틀', 'frame']], w: 0.9, d: 0.12, h: 0, rebuild: true, minW: 0.6, minD: 0.12, isDoor: true,
+      build: function (g, w, d, u) {
+        w = w || 0.9; const hw = w / 2, pw = w - 0.1;
+        doorFrame(g, w);
+        const hinge = new THREE.Group(); hinge.position.set(-hw + 0.05, 0, 0.0); g.add(hinge);
+        seg(hinge, 0, pw, -0.02, 0.02, 0.01, 2.09, M.door);
+        seg(hinge, pw - 0.1, pw - 0.07, 0.02, 0.05, 0.98, 1.0, M.handle);             // lever handles
+        seg(hinge, pw - 0.1, pw - 0.07, -0.05, -0.02, 0.98, 1.0, M.handle);
+        seg(hinge, pw - 0.08, pw - 0.02, 0.02, 0.03, 0.95, 1.03, M.handle);
+        hinge.rotation.y = u && u.open ? -Math.PI * 0.45 : 0;
+      } },
+    slidedoor: { name: '미닫이문', parts: [['문', 'door'], ['문틀', 'frame']], w: 0.9, d: 0.16, h: 0, rebuild: true, minW: 0.6, minD: 0.16, isDoor: true,
+      build: function (g, w, d, u) {
+        w = w || 0.9; const hw = w / 2, pw = w - 0.06;
+        doorFrame(g, w);
+        seg(g, -hw, hw + pw * 0.9, 0.06, 0.08, 2.1, 2.14, M.handle);                    // top rail
+        const off = u && u.open ? pw * 0.85 : 0;
+        seg(g, -hw + 0.03 + off, -hw + 0.03 + pw + off, 0.06, 0.1, 0.01, 2.09, M.door);
+        seg(g, -hw + 0.08 + off, -hw + 0.1 + off, 0.1, 0.11, 0.85, 1.15, M.handle);
+      } },
+    doorframe: { name: '문틀 (문 없음)', parts: [['문틀', 'frame']], w: 0.9, d: 0.12, h: 0, rebuild: true, minW: 0.5, minD: 0.12,
+      build: function (g, w) { doorFrame(g, w || 0.9); } }
+  });
+  const WARM = new THREE.Color(0xFFD29A), BLACK = new THREE.Color(0x000000);
+  function applyLamp(g) {
+    const u = g.userData, L = FURN[u.key] && FURN[u.key].light;
+    if (!L) return;
+    const m = u.parts[L.part].mat;
+    m.emissive.copy(u.on ? m.color : BLACK); m.emissiveIntensity = u.on ? 0.85 : 0;
+    u.lightObj.color.copy(L.follow ? m.color : WARM);
+    u.lightObj.intensity = u.on ? L.intensity : 0;
+  }
+  const WALLTYPES = {
+    wall: { name: '벽', h: H, t: 0.1 },
+    partition: { name: '칸막이', h: 1.2, t: 0.05 },
+    shelfwall: { name: '수납 칸', h: 1.8, t: 0.35 }
+  };
+
+  // ---------- room (rebuildable) ----------
+  const roomG = new THREE.Group(); scene.add(roomG);
+  const handleG = new THREE.Group(); scene.add(handleG);
+  let outerWalls = [], winMeshes = [], ceilMesh = null, walk = false;
+  const handleMat = new THREE.MeshBasicMaterial({ color: 0x3552A6, depthTest: false, transparent: true, opacity: 0.9 });
+  const bathHandleMat = new THREE.MeshBasicMaterial({ color: 0x2F8A83, depthTest: false, transparent: true, opacity: 0.9 });
+
+  function wavyCurtainGeo(h, waves) {
+    const geo = new THREE.PlaneGeometry(1, h, waves * 6, 1);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * Math.PI * 2 * waves) * 0.025);
+    geo.computeVertexNormals(); return geo;
+  }
+
+  function buildRoom() {
+    clearGroup(roomG); clearGroup(handleG);
+    outerWalls = []; winMeshes = [];
+    const { xMin, xMax, zMin, zMax } = R;
+    const w = xMax - xMin, d = zMax - zMin, cx = (xMin + xMax) / 2, cz = (zMin + zMax) / 2;
+
+    // floor
+    const fl = new THREE.Mesh(new THREE.PlaneGeometry(w, d), M.floor);
+    fl.rotation.x = -Math.PI / 2; fl.position.set(cx, 0, cz); fl.receiveShadow = true; roomG.add(fl);
+    if (floorOpt.tex) floorOpt.tex.repeat.set(w / floorOpt.m, d / floorOpt.m);
+
+    const dl = xMin + 0.3, dr = xMin + 1.2;
+    WINS.forEach(normalizeWin);
+    ['n', 's', 'w', 'e'].forEach(function (k) {
+      const wi = wallInfo(k), L = wi.L;
+      const g = new THREE.Group(); g.position.copy(wi.pos); g.rotation.y = wi.rot; roomG.add(g);
+      outerWalls.push({ g: g, normal: wi.out, center: wi.pos.clone().setY(H / 2), hidden: false });
+      // solid wall pieces around every opening (windows, and the entrance door on the bottom wall)
+      const ops = openingsOn(k, -1).sort((a, b) => a.a - b.a);
+      let cur = -L / 2 - T;
+      ops.forEach(function (op) {
+        if (op.a > cur + 0.001) seg(g, cur, op.a, -T, 0, 0, H, M.wall);
+        const a = Math.max(op.a, cur);
+        if (op.b > a + 0.001) {
+          if (op.y1 > 0.005) seg(g, a, op.b, -T, 0, 0, op.y1, M.wall);
+          if (op.y2 < H - 0.005) seg(g, a, op.b, -T, 0, op.y2, H, M.wall);
+        }
+        cur = Math.max(cur, op.b);
+      });
+      if (L / 2 + T > cur + 0.001) seg(g, cur, L / 2 + T, -T, 0, 0, H, M.wall);
+      WINS.forEach(function (win, i) { if (win.wall === k) buildWindow(g, win, i, L); });
+
+      if (k === 's') {   // entrance door, intercom and light switch (local x runs right-to-left in world)
+        const da = cx - xMin - 1.2;
+        const eh = new THREE.Group(); eh.position.set(da, 0, -0.045); eh.rotation.y = entranceOpen ? -1.4 : 0; g.add(eh);
+        const ep = seg(eh, 0, 0.9, -0.025, 0.025, 0, 2.1, M.door); ep.userData.entrance = true;
+        const eh1 = seg(eh, 0.76, 0.84, 0.025, 0.06, 0.98, 1.0, M.handle); eh1.userData.entrance = true;
+        const eh2 = seg(eh, 0.76, 0.84, -0.06, -0.025, 0.98, 1.0, M.handle); eh2.userData.entrance = true;
+        seg(g, da - 0.33, da - 0.15, 0, 0.02, 1.35, 1.6, M.wallpad);
+        seg(g, da - 0.31, da - 0.17, 0.02, 0.022, 1.4, 1.55, M.basinIn);
+        seg(g, da - 0.5, da - 0.42, 0, 0.015, 1.15, 1.27, M.acWhite);
+      }
+      if (k === 'e') {   // wall air conditioner, skipped if a tall window is in the way
+        const ax = zMin + Math.min(1.4, d * 0.25) - cz;
+        const blocked = WINS.some((w2) => w2.wall === 'e' && w2.sill + w2.h > 1.85 && Math.abs(w2.pos - ax) < w2.w / 2 + 0.45);
+        if (!blocked) {
+          seg(g, ax - 0.43, ax + 0.43, 0, 0.21, 1.9, 2.2, M.acWhite);
+          seg(g, ax - 0.4, ax + 0.4, 0.205, 0.215, 1.92, 1.97, M.hose);
+          seg(g, ax + 0.3, ax + 0.36, 0.205, 0.215, 2.12, 2.14, M.bottles[3]);
+        }
+      }
+    });
+    sunTarget.set(cx, 0, cz);
+    // invisible ceiling: never drawn, but it casts shadow so sunlight only enters through the windows
+    const ceil = seg(roomG, xMin - T, xMax + T, zMin - T, zMax + T, H, H + 0.05, walk ? M.ceilVis : M.hiddenWall);
+    ceil.receiveShadow = false; ceil.userData.mat = ceil.material; ceil.userData.ceiling = true; ceilMesh = ceil;
+
+    // footprint strips
+    seg(roomG, xMin - T, xMax + T, zMin - T, zMin, 0, 0.06, M.base);
+    seg(roomG, xMin - T, dl, zMax, zMax + T, 0, 0.06, M.base);
+    seg(roomG, dr, xMax + T, zMax, zMax + T, 0, 0.06, M.base);
+    seg(roomG, xMin - T, xMin, zMin, zMax, 0, 0.06, M.base);
+    seg(roomG, xMax, xMax + T, zMin, zMax, 0, 0.06, M.base);
+
+    // entrance tile (structure)
+    const en = new THREE.Mesh(new THREE.PlaneGeometry(dr + 0.3 - xMin, 0.55), M.entryTile);
+    en.rotation.x = -Math.PI / 2; en.position.set((xMin + dr + 0.3) / 2, 0.004, zMax - 0.275); en.receiveShadow = true; roomG.add(en);
+
+    // resize handles
+    [['n', cx, zMin - T - 0.32, 0.8, 0.26], ['s', cx, zMax + T + 0.32, 0.8, 0.26],
+     ['w', xMin - T - 0.32, cz, 0.26, 0.8], ['e', xMax + T + 0.32, cz, 0.26, 0.8]].forEach(function (h) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(h[3], 0.05, h[4]), handleMat);
+      m.position.set(h[1], 0.03, h[2]); m.renderOrder = 20; m.userData.handle = h[0]; handleG.add(m);
+      const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.2, 3), handleMat);
+      arrow.renderOrder = 21; arrow.userData.handle = h[0];
+      arrow.rotation.x = Math.PI / 2;
+      const dir = { n: [0, -1], s: [0, 1], w: [-1, 0], e: [1, 0], bw: [-1, 0], bn: [0, -1] }[h[0]];
+      arrow.rotation.set(-Math.PI / 2, 0, Math.atan2(-dir[0], -dir[1]));
+      arrow.position.set(h[1] + dir[0] * 0.3, 0.05, h[2] + dir[1] * 0.3);
+      handleG.add(arrow);
+    });
+    handleG.visible = mode === 'resize';
+
+    // sun framing
+    const ext = Math.max(w, d) + 2;
+    Object.assign(sun.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext, near: 1, far: 40 });
+    sun.shadow.camera.updateProjectionMatrix();
+    ceiling.position.set(cx, 2.3, cz - 0.8);
+
+    const area = w * d;
+    syncWinUI();
+    ['roomW', 'roomD'].forEach(function (id, i) {
+      if (document.activeElement !== $(id)) $(id).value = Math.round((i === 0 ? w : d) * 100);
+    });
+    $('dims').textContent = '방 크기 ' + w.toFixed(2).replace(/\.?0+$/, '') + ' × ' + d.toFixed(2).replace(/\.?0+$/, '') + 'm, 약 ' + (area / 3.3058).toFixed(1) + '평';
+  }
+
+  function updateCurtain(win) {
+    const c = win._c; if (!c) return;
+    const half = c.span / 2, pw = half * (1 - win.curtain * 0.8);
+    c.panels.forEach(function (p) { p.scale.x = pw; p.position.x = c.ccx + p.userData.side * (half - pw / 2); });
+  }
+
+  // ---------- lights ----------
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x8C7D6C, 0.6); scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xFFF0DA, 1.3);
+  const sunTarget = new THREE.Vector3();
+  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02; sun.shadow.radius = 3;
+  scene.add(sun); scene.add(sun.target);
+  const ceiling = new THREE.PointLight(0xFFE3BD, 0, 14, 2); scene.add(ceiling);
+  const lampLight = new THREE.PointLight(0xFFC98A, 0, 3.5, 2); scene.add(lampLight);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), mat(0xC9D1D5, { roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; scene.add(ground);
+
+  let lightsOn = false;
+  const C_NIGHT = new THREE.Color(0x141A1F), C_DAY = new THREE.Color(0xDCE3E6), C_DAWN = new THREE.Color(0xE9CDB0);
+  const G_NIGHT = new THREE.Color(0x20282D), G_DAY = new THREE.Color(0xC9D1D5);
+  const SUN_LOW = new THREE.Color(0xFFA964), SUN_HIGH = new THREE.Color(0xFFF4E4);
+  function applyEnv() {
+    const t = +$('timeIn').value;
+    const f = (t - 6) / 13; // sunrise 6:00, sunset 19:00
+    const s = f > 0 && f < 1 ? Math.sin(Math.PI * f) : 0;
+    const day = smooth(0, 0.2, s);
+    // sun travels east -> south -> west; 'face' says which compass direction the top wall looks toward
+    const el = Math.max(3 * DEG, s * 60 * DEG);
+    const hd = (90 + 180 * clamp01(f) - FACE_ANGLE[face]) * DEG;
+    const dir = new THREE.Vector3(Math.sin(hd) * Math.cos(el), Math.sin(el), -Math.cos(hd) * Math.cos(el));
+    // how much daylight gets in: window area weighted by curtain openness (closed fabric still lets a little through)
+    let tot = 0, lit = 0;
+    WINS.forEach(function (w) { const a = w.w * w.h; tot += a; lit += a * (0.12 + 0.88 * w.curtain); });
+    const openness = tot > 0 ? Math.min(1, lit / Math.max(tot, 2.0)) : 0;
+    sun.target.position.copy(sunTarget);
+    sun.position.copy(sunTarget).addScaledVector(dir, 16);
+    sun.intensity = 1.6 * day;
+    sun.color.copy(SUN_LOW).lerp(SUN_HIGH, smooth(0.05, 0.6, s));
+    hemi.intensity = 0.1 + day * (0.2 + 0.52 * openness);
+    let closedAmt = 0; WINS.forEach((w) => { closedAmt = Math.max(closedAmt, 1 - w.curtain); });
+    M.curtain.emissiveIntensity = day * 0.35 * (0.4 + 0.6 * closedAmt);   // sunlit fabric glows softly
+    hemi.color.set(0x7F93B8).lerp(new THREE.Color(0xffffff), day);
+    const warm = (1 - smooth(0.1, 0.5, s)) * day * 0.6;
+    scene.background.copy(C_NIGHT).lerp(C_DAY, day).lerp(C_DAWN, warm);
+    ground.material.color.copy(G_NIGHT).lerp(G_DAY, day);
+
+    ceiling.intensity = lightsOn ? 1.2 : 0;
+    M.lampShade.emissive.set(lightsOn ? 0xFFC98A : 0x000000); M.lampShade.emissiveIntensity = lightsOn ? 0.9 : 0;
+    M.screen.emissive.set(lightsOn ? 0x3E5A86 : 0x000000); M.screen.emissiveIntensity = lightsOn ? 0.6 : 0;
+    const b = $('lightBtn'); b.textContent = lightsOn ? '실내 조명 끄기' : '실내 조명 켜기'; b.setAttribute('aria-pressed', String(lightsOn));
+
+    const h = Math.floor(t), m = Math.round((t - h) * 60);
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    $('timeOut').textContent = (h < 12 ? '오전 ' : '오후 ') + h12 + ':' + String(m).padStart(2, '0');
+  }
+
+  // ---------- window ----------
+  const WALL_NAME = { n: '위', s: '아래', w: '왼쪽', e: '오른쪽' };
+  function wallInfo(k) {
+    const { xMin, xMax, zMin, zMax } = R, cx = (xMin + xMax) / 2, cz = (zMin + zMax) / 2;
+    if (k === 'n') return { L: xMax - xMin, pos: new THREE.Vector3(cx, 0, zMin), rot: 0, out: new THREE.Vector3(0, 0, -1) };
+    if (k === 's') return { L: xMax - xMin, pos: new THREE.Vector3(cx, 0, zMax), rot: Math.PI, out: new THREE.Vector3(0, 0, 1) };
+    if (k === 'e') return { L: zMax - zMin, pos: new THREE.Vector3(xMax, 0, cz), rot: -Math.PI / 2, out: new THREE.Vector3(1, 0, 0) };
+    return { L: zMax - zMin, pos: new THREE.Vector3(xMin, 0, cz), rot: Math.PI / 2, out: new THREE.Vector3(-1, 0, 0) };
+  }
+  function localAlong(k, p) {   // world point -> position along the wall (same axis as win.pos)
+    const wi = wallInfo(k), ux = new THREE.Vector3(Math.cos(wi.rot), 0, -Math.sin(wi.rot));
+    return p.clone().sub(wi.pos).dot(ux);
+  }
+  function openingsOn(k, skip) {
+    const ops = [];
+    WINS.forEach(function (w, i) { if (w.wall === k && i !== skip) ops.push({ a: w.pos - w.w / 2, b: w.pos + w.w / 2, y1: w.sill, y2: w.sill + w.h }); });
+    if (k === 's') { const cx = (R.xMin + R.xMax) / 2, da = cx - R.xMin - 1.2; ops.push({ a: da, b: da + 0.9, y1: 0, y2: 2.1, door: true }); }
+    return ops;
+  }
+  function normalizeWin(w) {
+    const L = wallInfo(w.wall).L;
+    w.w = Math.min(Math.max(0.4, w.w), L - 0.1);
+    w.h = Math.min(Math.max(0.3, w.h), H - 0.07);
+    w.sill = Math.min(Math.max(0, w.sill), H - 0.07 - w.h);
+    const m = Math.max(0, L / 2 - 0.05 - w.w / 2);
+    w.pos = Math.min(m, Math.max(-m, w.pos));
+  }
+  function fitsWin(w, idx) {
+    const a = w.pos - w.w / 2, b = w.pos + w.w / 2;
+    return !openingsOn(w.wall, idx).some((op) => a < op.b + 0.1 && b > op.a - 0.1);
+  }
+  function tryWin(idx, changes) {
+    const old = Object.assign({}, WINS[idx]);
+    Object.assign(WINS[idx], changes); normalizeWin(WINS[idx]);
+    if (!fitsWin(WINS[idx], idx)) { Object.assign(WINS[idx], old); return false; }
+    buildRoom(); applyEnv(); return true;
+  }
+  function findSpot(w, k, idx) {   // nearest free position on wall k for window w
+    const L = wallInfo(k).L, t = Object.assign({}, w, { wall: k }); normalizeWin(t);
+    for (let step = 0; step <= L; step += 0.1) {
+      for (const sgn of [1, -1]) {
+        t.pos = sgn * step; normalizeWin(t);
+        if (fitsWin(t, idx)) return t.pos;
+      }
+    }
+    return null;
+  }
+  function freeSpan(idx) {   // widest free stretch around a window (for the full-height preset)
+    const w = WINS[idx], L = wallInfo(w.wall).L;
+    let lo = -L / 2 + 0.05, hi = L / 2 - 0.05;
+    openingsOn(w.wall, idx).forEach(function (op) {
+      if (op.b <= w.pos) lo = Math.max(lo, op.b + 0.1);
+      else if (op.a >= w.pos) hi = Math.min(hi, op.a - 0.1);
+    });
+    return [lo, hi];
+  }
+  function buildWindow(g, win, idx, L) {
+    const ww = win.w, wh = win.h, ws = win.sill, wt = ws + wh, wl = win.pos - ww / 2, wr = win.pos + ww / 2;
+    const tag = (m) => { m.userData.win = idx; winMeshes.push(m); return m; };
+    const gm = winActive && idx === selWin ? M.glassSel : M.glass;
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), gm);
+    glass.position.set(win.pos, ws + wh / 2, -T / 2); glass.userData.mat = gm; g.add(glass); tag(glass);
+    const f1 = -0.065, f2 = -0.035;
+    tag(seg(g, wl, wr, f1, f2, ws, ws + 0.04, M.frame));
+    tag(seg(g, wl, wr, f1, f2, wt - 0.04, wt, M.frame));
+    tag(seg(g, wl, wl + 0.04, f1, f2, ws, wt, M.frame));
+    tag(seg(g, wr - 0.04, wr, f1, f2, ws, wt, M.frame));
+    const panes = Math.max(2, Math.round(ww / 1.1));
+    for (let i = 1; i < panes; i++) { const mx = wl + (ww * i) / panes; tag(seg(g, mx - 0.02, mx + 0.02, f1, f2, ws, wt, M.frame)); }
+    if (wh > 1.6) tag(seg(g, wl, wr, f1, f2, ws + 0.62, ws + 0.66, M.frame));
+    if (ws >= 0.3) tag(seg(g, wl - 0.03, wr + 0.03, -0.02, 0.07, ws - 0.03, ws + 0.005, M.frame));
+    // curtain sized to this window
+    const cl = Math.max(-L / 2 + 0.02, wl - 0.2), cr = Math.min(L / 2 - 0.02, wr + 0.2);
+    const span = cr - cl, ccx = (cl + cr) / 2, rz = 0.13;
+    const rodY = Math.min(H - 0.05, wt + 0.12), cBot = ws > 0.3 ? ws - 0.1 : 0.02, ch = rodY - 0.02 - cBot;
+    seg(g, cl - 0.03, cr + 0.03, rz - 0.012, rz + 0.012, rodY, rodY + 0.024, M.rod).castShadow = false;
+    const cgeo = wavyCurtainGeo(ch, Math.max(5, Math.round(span * 3)));
+    const panels = [-1, 1].map(function (side) {
+      const p = new THREE.Mesh(cgeo, M.curtain);
+      p.castShadow = true; p.receiveShadow = true; p.userData.mat = M.curtain; p.userData.side = side;
+      p.position.set(ccx, cBot + ch / 2, rz); g.add(p); return p;
+    });
+    win._c = { panels: panels, ccx: ccx, span: span };
+    updateCurtain(win);
+  }
+  function syncWinUI() {
+    const list = $('winList'); list.innerHTML = '';
+    WINS.forEach(function (w, i) {
+      const b = document.createElement('button');
+      b.textContent = '창문 ' + (i + 1) + ' · ' + WALL_NAME[w.wall];
+      b.setAttribute('aria-pressed', String(i === selWin));
+      b.addEventListener('click', function () { selWin = i; winActive = true; select(null); buildRoom(); applyEnv(); });
+      list.appendChild(b);
+    });
+    const add = document.createElement('button'); add.textContent = '+ 창문 추가'; add.addEventListener('click', addWindow); list.appendChild(add);
+    $('winEdit').hidden = !WINS.length;
+    if (!WINS.length) return;
+    selWin = Math.min(selWin, WINS.length - 1);
+    const w = WINS[selWin], L = wallInfo(w.wall).L, m = Math.max(0, L / 2 - 0.05 - w.w / 2);
+    document.querySelectorAll('[data-wall]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.wall === w.wall)));
+    $('winW').max = (L - 0.1).toFixed(2); $('winW').value = w.w; $('winWOut').textContent = Math.round(w.w * 100) + 'cm';
+    $('winH').value = w.h; $('winHOut').textContent = Math.round(w.h * 100) + 'cm';
+    $('winS').max = (H - 0.07 - w.h).toFixed(2); $('winS').value = w.sill; $('winSOut').textContent = Math.round(w.sill * 100) + 'cm';
+    $('winO').min = (-m).toFixed(2); $('winO').max = m.toFixed(2); $('winO').value = w.pos; $('winO').disabled = m < 0.01;
+    $('winOOut').textContent = Math.abs(w.pos) < 0.01 ? '가운데' : (w.pos < 0 ? '왼쪽 ' : '오른쪽 ') + Math.round(Math.abs(w.pos) * 100) + 'cm';
+    $('winC').value = Math.round(w.curtain * 100);
+    $('winCOut').textContent = w.curtain <= 0.001 ? '닫힘' : w.curtain >= 0.999 ? '열림' : Math.round(w.curtain * 100) + '% 열림';
+    const full = w.sill < 0.1 && w.h > 2.2;
+    document.querySelectorAll('[data-win]').forEach(function (b) {
+      const pr = WIN_PRESETS[b.dataset.win];
+      const on = b.dataset.win === 'full' ? full : (!full && Math.abs(w.w - pr.w) < 0.01 && Math.abs(w.h - pr.h) < 0.01 && Math.abs(w.sill - pr.sill) < 0.01);
+      b.setAttribute('aria-pressed', String(on));
+    });
+  }
+  function winMsg(t) { $('winMsg').textContent = t; }
+  function addWindow() {
+    const tmpl = { w: 1.2, h: 1.2, sill: 0.9, pos: 0, curtain: 1 };
+    for (const k of ['n', 'e', 'w', 's']) {
+      const pos = findSpot(tmpl, k, -1);
+      if (pos !== null) {
+        WINS.push(Object.assign({}, tmpl, { wall: k, pos: pos }));
+        selWin = WINS.length - 1; winActive = true; select(null);
+        buildRoom(); applyEnv(); winMsg('창문 ' + WINS.length + '을(를) ' + WALL_NAME[k] + ' 벽에 추가했어요. 끌어서 옮길 수 있어요.');
+        return;
+      }
+    }
+    winMsg('창문을 더 넣을 빈 벽이 없어요. 기존 창문을 줄이거나 삭제해 보세요.');
+  }
+
+  // ---------- items ----------
+  const movables = [];
+  function setAngle(g, a) { a = ((Math.round(a) % 360) + 360) % 360; g.userData.angle = a; g.rotation.y = -a * DEG; }
+  function extents(g) {
+    const a = g.userData.angle * DEG, c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
+    return [(g.userData.w * c + g.userData.d * s) / 2, (g.userData.w * s + g.userData.d * c) / 2];
+  }
+  function clampItem(g) {
+    const e = extents(g), m = 0.005;
+    g.position.x = Math.min(R.xMax - e[0] - m, Math.max(R.xMin + e[0] + m, g.position.x));
+    g.position.z = Math.min(R.zMax - e[1] - m, Math.max(R.zMin + e[1] + m, g.position.z));
+  }
+  function placeItem(g, x, z, angle) {
+    g.position.set(x, 0, z); setAngle(g, angle || 0);
+    scene.add(g); movables.push(g); clampItem(g); return g;
+  }
+  function makeFurniture(key) {
+    const f = FURN[key], g = new THREE.Group();
+    const inner = new THREE.Group(); g.add(inner);
+    g.userData = { item: true, kind: 'furniture', key: key, name: f.name, w: f.w, d: f.d, h: f.h, angle: 0, inner: inner, open: false };
+    f.build(inner, f.w, f.d, g.userData);
+    if (inner.userData.lamp) g.userData.lamp = inner.userData.lamp;
+    // give this item its own copies of its colorable materials so recoloring affects only this piece
+    const own = new Map(); g.userData.parts = []; g.userData.part = 0;
+    (f.parts || []).forEach(function (pt) {
+      const orig = M[pt[1]], c = orig.clone(); own.set(orig, c);
+      g.userData.parts.push({ label: pt[0], mat: c, src: orig, orig: '#' + orig.color.getHexString() });
+    });
+    g.userData.own = own; applyOwn(g);
+    if (f.isDoor) g.userData.open = false;
+    g.userData.liftable = !!f.liftable; g.userData.lift = f.lift || 0; inner.position.y = g.userData.lift;
+    if (f.light) {
+      const L = new THREE.PointLight(0xffffff, 0, f.light.dist, 2);
+      L.position.set(0, f.light.y, f.light.z); inner.add(L);
+      g.userData.lightObj = L; g.userData.on = true; applyLamp(g);
+    }
+    return g;
+  }
+  function buildWallMeshes(g) {
+    clearGroup(g);
+    const u = g.userData, ty = WALLTYPES[u.wtype];
+    if (u.wtype === 'wall') box(g, u.w, ty.h, ty.t, M.wall, 0, 0, 0);
+    else if (u.wtype === 'partition') {
+      box(g, u.w, ty.h, ty.t, M.panel, 0, 0, 0);
+      box(g, u.w + 0.01, 0.03, ty.t + 0.02, M.oak, 0, ty.h, 0);
+    } else {
+      // open shelving unit used as a room divider
+      const n = Math.max(1, Math.round(u.w / 0.4)), cw = u.w / n;
+      for (let i = 0; i <= n; i++) box(g, 0.02, ty.h, ty.t, M.oak, -u.w / 2 + i * cw + (i === 0 ? 0.01 : i === n ? -0.01 : 0), 0, 0);
+      [0, 0.45, 0.9, 1.35, 1.78].forEach((y) => box(g, u.w, 0.02, ty.t, M.oak, 0, y, 0));
+      for (let i = 0; i < n; i++) if ((i * 3) % 4 !== 0) box(g, cw * 0.55, 0.28, 0.22, M.books[i % 5], -u.w / 2 + (i + 0.5) * cw, 0.47, 0);
+    }
+  }
+  function makeWall(type, len) {
+    const g = new THREE.Group();
+    g.userData = { item: true, kind: 'wall', wtype: type, name: WALLTYPES[type].name, w: len, d: WALLTYPES[type].t, angle: 0 };
+    buildWallMeshes(g); return g;
+  }
+  function wallBetween(type, ax, az, bx, bz) {
+    const len = Math.hypot(bx - ax, bz - az);
+    if (len < 0.2) return null;
+    const g = makeWall(type, len);
+    return placeItem(g, (ax + bx) / 2, (az + bz) / 2, Math.atan2(bz - az, bx - ax) / DEG);
+  }
+  function applyOwn(g) {
+    const own = g.userData.own; if (!own) return;
+    g.userData.inner.traverse(function (o) { if (o.isMesh && own.has(o.material)) { o.material = own.get(o.material); o.userData.mat = o.material; } });
+  }
+  function rebuildItem(g) { const u = g.userData, f = FURN[u.key]; clearGroup(u.inner); f.build(u.inner, u.w, u.d, u); applyOwn(g); }
+  function resizeFurniture(g, w, d, h) {
+    const u = g.userData, f = FURN[u.key];
+    if (f.rebuild) {
+      w = Math.max(f.minW || 0.2, w); d = Math.max(f.minD || 0.2, d);
+      const e0 = extents(g), tol = 0.03, px = g.position.x, pz = g.position.z;
+      const touch = { l: px - e0[0] <= R.xMin + tol, r: px + e0[0] >= R.xMax - tol, t: pz - e0[1] <= R.zMin + tol, b: pz + e0[1] >= R.zMax - tol };
+      clearGroup(u.inner); u.w = w; u.d = d; f.build(u.inner, w, d, u); applyOwn(g);
+      const e1 = extents(g);
+      if (touch.r && !touch.l) g.position.x = R.xMax - e1[0]; else if (touch.l && !touch.r) g.position.x = R.xMin + e1[0];
+      if (touch.b && !touch.t) g.position.z = R.zMax - e1[1]; else if (touch.t && !touch.b) g.position.z = R.zMin + e1[1];
+      clampItem(g);
+      if (u.key === 'bathroom') {
+        // fixtures standing against a bathroom wall move with that wall, so they stay inside
+        const b0 = { l: px - e0[0], r: px + e0[0], t: pz - e0[1], b: pz + e0[1] };
+        const b1 = { l: g.position.x - e1[0], r: g.position.x + e1[0], t: g.position.z - e1[1], b: g.position.z + e1[1] };
+        const wt = 0.08;
+        movables.forEach(function (o) {
+          if (o === g) return;
+          const ox = o.position.x, oz = o.position.z;
+          if (ox < b0.l || ox > b0.r || oz < b0.t || oz > b0.b) return;
+          const oe = extents(o);
+          if (ox - oe[0] - b0.l < 0.2) o.position.x += b1.l - b0.l; else if (b0.r - (ox + oe[0]) < 0.2) o.position.x += b1.r - b0.r;
+          if (oz - oe[1] - b0.t < 0.2) o.position.z += b1.t - b0.t; else if (b0.b - (oz + oe[1]) < 0.2) o.position.z += b1.b - b0.b;
+          o.position.x = Math.min(b1.r - wt - oe[0], Math.max(b1.l + wt + oe[0], o.position.x));
+          o.position.z = Math.min(b1.b - wt - oe[1], Math.max(b1.t + wt + oe[1], o.position.z));
+        });
+      }
+      return;
+    }
+    u.w = w; u.d = d; if (h !== undefined && f.h) u.h = h;
+    u.inner.scale.set(w / f.w, f.h ? u.h / f.h : 1, d / f.d);
+    clampItem(g);
+  }
+  function removeItem(g) {
+    scene.remove(g); disposeTree(g);
+    const i = movables.indexOf(g); if (i >= 0) movables.splice(i, 1);
+    if (selected === g) select(null);
+  }
+  // deleting by hand keeps the pieces so they can be restored with 되돌리기
+  const undoStack = [];
+  function eraseItems(list) {
+    list = list.filter((g) => movables.indexOf(g) >= 0);
+    if (!list.length) return;
+    list.forEach(function (g) {
+      scene.remove(g); movables.splice(movables.indexOf(g), 1);
+      if (selected === g) select(null);
+    });
+    undoStack.push(list); if (undoStack.length > 30) undoStack.shift().forEach(disposeTree);
+    $('undoBtn').disabled = false;
+  }
+  function undoErase() {
+    const list = undoStack.pop(); if (!list) return;
+    list.forEach(function (g) { scene.add(g); movables.push(g); });
+    $('undoBtn').disabled = !undoStack.length;
+  }
+  function roomMates(g) {   // all walls (and door) created together by 방 만들기
+    const id = g.userData.roomId;
+    return id ? movables.filter((o) => o.userData.roomId === id) : [g];
+  }
+  function initialLayout() {
+    [['bedSS', 1.25, -1.95, 0], ['nightstand', 0.45, -2.75, 0], ['desk', -1.2, -2.68, 0], ['chair', -1.2, -2.05, 0],
+     ['wardrobe', 1.5, -0.2, 90], ['rug', -0.1, -1.2, 0], ['lowtable', -0.1, -1.2, 0],
+     ['kitchen', -1.5, 1.35, 270], ['fridge', -1.475, 0.11, 270], ['microwave', -1.525, 0.11, 270, 1.55],
+     ['shoes', -1.64, 2.675, 270],
+     ['bathroom', 1.0, 2.1, 0], ['toilet', 1.38, 2.57, 180], ['paper', 1.645, 2.15, 90],
+     ['sink', 0.58, 1.49, 0], ['shower', 1.27, 1.73, 0], ['towelbar', 0.75, 2.88, 180],
+     ['trash', 0.98, 2.8, 0], ['bathmat', 0.64, 1.83, 0]].forEach(function (a) {
+      const g = placeItem(makeFurniture(a[0]), a[1], a[2], a[3]);
+      if (a[4] !== undefined) { g.userData.lift = a[4]; g.userData.inner.position.y = a[4]; }
+    });
+  }
+
+  // ---------- selection ----------
+  let selected = null;
+  const outline = new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 0, -0.5), new THREE.Vector3(0.5, 0, 0.5), new THREE.Vector3(-0.5, 0, 0.5)]),
+    new THREE.LineBasicMaterial({ color: 0x3552A6, depthTest: false, transparent: true })
+  );
+  outline.renderOrder = 30; outline.visible = false; scene.add(outline);
+
+  function refreshSel() {
+    if (!selected) return;
+    const u = selected.userData;
+    $('selName').textContent = u.name;
+    $('selSize').textContent = u.kind === 'wall'
+      ? '길이 ' + Math.round(u.w * 100) + 'cm, 높이 ' + Math.round(WALLTYPES[u.wtype].h * 100) + 'cm'
+      : Math.round(u.w * 100) + ' × ' + Math.round(u.d * 100) + (u.h ? ' × 높이 ' + Math.round(u.h * 100) : '') + 'cm';
+    $('sizeRows').hidden = u.kind !== 'furniture';
+    $('delRoomBtn').hidden = !u.roomId;
+    $('bathPosRow').hidden = u.key !== 'bathroom';
+    const isDoor = !!(FURN[u.key] && FURN[u.key].isDoor);
+    $('doorBtn').hidden = !isDoor;
+    if (isDoor) { $('doorBtn').textContent = u.open ? '문 닫기' : '문 열기'; $('doorBtn').setAttribute('aria-pressed', String(u.open)); }
+    $('lampBtn').hidden = !u.lightObj;
+    if (u.lightObj) { $('lampBtn').textContent = u.on ? '불 끄기' : '불 켜기'; $('lampBtn').setAttribute('aria-pressed', String(u.on)); }
+    $('liftRow').hidden = !u.liftable;
+    if (u.liftable) { $('liftIn').value = u.lift; $('liftOut').textContent = u.lift < 0.01 ? '바닥' : Math.round(u.lift * 100) + 'cm'; }
+    $('colorRow').hidden = !(u.parts && u.parts.length);
+    if (u.parts && u.parts.length) {
+      const pr = $('partRow'); pr.innerHTML = '';
+      if (u.parts.length > 1) u.parts.forEach(function (pt, i) {
+        const b = document.createElement('button'); b.textContent = pt.label;
+        b.setAttribute('aria-pressed', String(i === u.part));
+        b.addEventListener('click', function () { u.part = i; refreshSel(); });
+        pr.appendChild(b);
+      });
+      const cur = '#' + u.parts[u.part].mat.color.getHexString();
+      document.querySelectorAll('#furnSw .fsw').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.hex.toLowerCase() === cur)));
+      $('furnCustom').value = cur;
+    }
+    if (u.kind === 'furniture') {
+      $('wIn').value = u.w; $('wOut').textContent = Math.round(u.w * 100) + 'cm';
+      $('dIn').value = u.d; $('dOut').textContent = Math.round(u.d * 100) + 'cm';
+      $('hRow').hidden = !u.h;
+      if (u.h) { $('hIn').value = u.h; $('hOut').textContent = Math.round(u.h * 100) + 'cm'; }
+    }
+    $('angIn').value = u.angle; $('angOut').textContent = u.angle + '°';
+    $('lenRow').hidden = u.kind !== 'wall';
+    if (u.kind === 'wall') {
+      $('lenIn').max = Math.max(R.xMax - R.xMin, R.zMax - R.zMin).toFixed(2);
+      $('lenIn').value = u.w; $('lenOut').textContent = (u.w).toFixed(2) + 'm';
+    }
+  }
+  function select(g) {
+    selected = g;
+    outline.visible = !!g; $('selbar').hidden = !g;
+    refreshSel();
+  }
+  function rotateSelected(delta) {
+    if (!selected) return;
+    let a = selected.userData.angle + delta;
+    if (Math.abs(delta) === 15) a = Math.round(a / 15) * 15;
+    setAngle(selected, a); clampItem(selected); refreshSel();
+  }
+  $('angIn').addEventListener('input', function () { if (!selected) return; setAngle(selected, +this.value); clampItem(selected); refreshSel(); });
+  $('angMinus').addEventListener('click', () => rotateSelected(-15));
+  $('angPlus').addEventListener('click', () => rotateSelected(15));
+  $('lenIn').addEventListener('input', function () {
+    if (!selected || selected.userData.kind !== 'wall') return;
+    selected.userData.w = +this.value; buildWallMeshes(selected); clampItem(selected); refreshSel();
+  });
+  ['wIn', 'dIn', 'hIn'].forEach(function (id) {
+    $(id).addEventListener('input', function () {
+      if (!selected || selected.userData.kind !== 'furniture') return;
+      resizeFurniture(selected, +$('wIn').value, +$('dIn').value, +$('hIn').value);
+      refreshSel();
+    });
+  });
+  const FURN_COLORS = [
+    ['화이트', '#eeece7'], ['아이보리', '#e6dcc6'], ['라이트 오크', '#c9a57a'], ['오크', '#b68a5e'],
+    ['월넛', '#6e4b32'], ['그레이', '#8c9296'], ['차콜', '#3a3f44'], ['네이비', '#3e4f6e'],
+    ['세이지', '#8fa08a'], ['더스티 핑크', '#d4aaa4'], ['머스타드', '#c9a24a'], ['테라코타', '#b0674f']
+  ];
+  function recolor(hex) {
+    if (!selected || !selected.userData.parts || !selected.userData.parts.length) return;
+    selected.userData.parts[selected.userData.part].mat.color.set(hex);
+    applyLamp(selected);
+    refreshSel();
+  }
+  FURN_COLORS.forEach(function (c) {
+    const b = document.createElement('button'); b.className = 'fsw'; b.dataset.hex = c[1];
+    b.style.background = c[1]; b.title = c[0]; b.setAttribute('aria-label', c[0]);
+    b.addEventListener('click', () => recolor(c[1]));
+    $('furnSw').appendChild(b);
+  });
+  const fc = document.createElement('input'); fc.type = 'color'; fc.id = 'furnCustom'; fc.title = '직접 고르기'; fc.setAttribute('aria-label', '가구 색 직접 고르기');
+  fc.addEventListener('input', function () { recolor(this.value); });
+  $('furnSw').appendChild(fc);
+  $('colorReset').addEventListener('click', function () {
+    if (!selected || !selected.userData.parts) return;
+    const pt = selected.userData.parts[selected.userData.part]; recolor(pt.orig);
+  });
+  $('doorBtn').addEventListener('click', function () {
+    if (!selected) return;
+    selected.userData.open = !selected.userData.open; rebuildItem(selected); refreshSel();
+  });
+  $('lampBtn').addEventListener('click', function () {
+    if (!selected || !selected.userData.lightObj) return;
+    selected.userData.on = !selected.userData.on; applyLamp(selected); refreshSel();
+  });
+  $('liftIn').addEventListener('input', function () {
+    if (!selected || !selected.userData.liftable) return;
+    selected.userData.lift = +this.value; selected.userData.inner.position.y = selected.userData.lift; refreshSel();
+  });
+  $('delBtn').addEventListener('click', () => { if (selected) eraseItems([selected]); });
+  $('delRoomBtn').addEventListener('click', () => { if (selected) eraseItems(roomMates(selected)); });
+  $('undoBtn').addEventListener('click', undoErase);
+  // move the bathroom into a room corner, taking everything inside it along
+  document.querySelectorAll('[data-corner]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      const g = selected; if (!g || g.userData.key !== 'bathroom') return;
+      const e = extents(g), c = b.dataset.corner;
+      const tx = c[0] === 'l' ? R.xMin + e[0] : R.xMax - e[0], tz = c[1] === 't' ? R.zMin + e[1] : R.zMax - e[1];
+      const dx = tx - g.position.x, dz = tz - g.position.z;
+      const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), lp = new THREE.Vector3();
+      movables.forEach(function (o) {
+        if (o === g) return;
+        lp.copy(o.position).applyMatrix4(inv);
+        if (Math.abs(lp.x) < g.userData.w / 2 && Math.abs(lp.z) < g.userData.d / 2) { o.position.x += dx; o.position.z += dz; clampItem(o); }
+      });
+      g.position.x = tx; g.position.z = tz;
+    });
+  });
+
+  // ---------- modes ----------
+  let mode = 'move';
+  const HELP = {
+    move: '가구나 벽을 끌어서 옮기세요. 빈 곳을 끌면 시점이 돌아가요.',
+    resize: '방 밖의 파란 손잡이를 끌면 벽이 움직여요. 위에서 보기가 편해요.',
+    wall: '바닥을 끌어서 천장까지 닿는 벽을 그리세요. 15° 단위로 맞춰져요.',
+    room: '바닥을 대각선으로 끌면 방이 만들어져요. 아래에서 입구 방향과 문 종류를 고르세요. 위쪽이 창문 쪽이에요.',
+    partition: '바닥을 끌어서 120cm 높이 칸막이를 그리세요.',
+    shelfwall: '바닥을 끌어서 칸칸이 나뉜 수납 선반 벽을 세우세요.',
+    erase: '지울 벽, 칸막이, 문, 가구를 누르면 바로 지워져요. 실수했다면 되돌리기를 누르세요.'
+  };
+  function setMode(m) {
+    mode = m;
+    document.querySelectorAll('[data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+    $('modeHelp').textContent = HELP[m];
+    handleG.visible = m === 'resize';
+    $('roomOpts').hidden = m !== 'room';
+    canvas.style.cursor = m === 'move' || m === 'resize' ? 'default' : 'crosshair';
+    if (m !== 'move') select(null);
+    if (m === 'erase') canvas.style.cursor = 'default';
+  }
+  document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  let roomEntry = 'bottom', roomDoor = 'door';
+  document.querySelectorAll('[data-entry]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      roomEntry = b.dataset.entry;
+      document.querySelectorAll('[data-entry]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    });
+  });
+  document.querySelectorAll('[data-rdoor]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      roomDoor = b.dataset.rdoor;
+      document.querySelectorAll('[data-rdoor]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    });
+  });
+
+  // ---------- pointer interaction ----------
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+  const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hitP = new THREE.Vector3();
+  let action = null, downAt = null, hoverItem = null;
+  const eraseOutline = new THREE.LineLoop(outline.geometry, new THREE.LineBasicMaterial({ color: 0xC0392B, depthTest: false, transparent: true }));
+  eraseOutline.renderOrder = 31; eraseOutline.visible = false; scene.add(eraseOutline);
+
+  const previewMat = new THREE.MeshBasicMaterial({ color: 0x3552A6, transparent: true, opacity: 0.45, depthWrite: false });
+  const previews = [0, 1, 2, 3].map(function () {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), previewMat); m.visible = false; scene.add(m); return m;
+  });
+  function showPreviewSeg(i, ax, az, bx, bz, h, t) {
+    const p = previews[i], len = Math.hypot(bx - ax, bz - az);
+    p.visible = len > 0.02;
+    p.scale.set(Math.max(len, 0.01), h, t);
+    p.position.set((ax + bx) / 2, h / 2, (az + bz) / 2);
+    p.rotation.y = -Math.atan2(bz - az, bx - ax);
+  }
+  function hidePreviews() { previews.forEach((p) => { p.visible = false; }); }
+
+  function setPtr(e) {
+    const r = canvas.getBoundingClientRect();
+    ptr.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    ptr.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(ptr, camera);
+  }
+  function pickFrom(list) {
+    const hits = ray.intersectObjects(list, true);
+    if (!hits.length) return null;
+    let o = hits[0].object;
+    while (o && !(o.userData && (o.userData.item || o.userData.handle))) o = o.parent;
+    return o;
+  }
+  // small items (무드등, 책상 스탠드, 전자레인지) sit on whatever surface is under them
+  const downRay = new THREE.Raycaster(), DOWN = new THREE.Vector3(0, -1, 0), nrm = new THREE.Vector3();
+  function surfaceBelow(g) {
+    const cands = movables.filter(function (o) {
+      const k = o.userData.key;
+      return o !== g && o.userData.kind !== 'wall' && k !== 'bathroom' && !(FURN[k] && FURN[k].isDoor);
+    });
+    scene.updateMatrixWorld();
+    downRay.set(new THREE.Vector3(g.position.x, 3, g.position.z), DOWN);
+    const hits = downRay.intersectObjects(cands, true);
+    for (let i = 0; i < hits.length; i++) {
+      const h = hits[i]; if (!h.face) continue;
+      nrm.copy(h.face.normal).transformDirection(h.object.matrixWorld);
+      if (nrm.y > 0.7 && h.point.y < 2.3) return h.point.y;
+    }
+    return 0;
+  }
+  function snapToSurface(g) {
+    if (!(FURN[g.userData.key] && FURN[g.userData.key].onTop)) return;
+    g.userData.lift = Math.round(surfaceBelow(g) * 1000) / 1000 + 0.002;
+    g.userData.inner.position.y = g.userData.lift;
+    if (selected === g) refreshSel();
+  }
+  function pickWindow() {   // nearest window hit, unless furniture is in front of it
+    const vis = winMeshes.filter((m) => m.material !== M.hiddenWall);
+    const hits = ray.intersectObjects(vis.concat(movables), true);
+    if (!hits.length) return null;
+    const o = hits[0].object;
+    return o.userData.win !== undefined ? { idx: o.userData.win, point: hits[0].point } : null;
+  }
+  function floorPoint() { return ray.ray.intersectPlane(floorPlane, hitP) ? hitP.clone() : null; }
+  function inRoom(p, m) { m = m || 0; return p.x >= R.xMin - m && p.x <= R.xMax + m && p.z >= R.zMin - m && p.z <= R.zMax + m; }
+  function clampToRoom(p) {
+    p.x = Math.min(R.xMax, Math.max(R.xMin, p.x)); p.z = Math.min(R.zMax, Math.max(R.zMin, p.z)); return p;
+  }
+  function snapLine(a, p) {
+    let dx = p.x - a.x, dz = p.z - a.z;
+    const len = snap(Math.hypot(dx, dz)), ang = Math.round(Math.atan2(dz, dx) / (15 * DEG)) * 15 * DEG;
+    return clampToRoom(new THREE.Vector3(a.x + Math.cos(ang) * len, 0, a.z + Math.sin(ang) * len));
+  }
+  function begin(e) {
+    controls.enabled = false; action.id = e.pointerId;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  }
+
+  canvas.addEventListener('pointerdown', function (e) {
+    if (walk) { walkDown(e); return; }
+    if (e.button !== undefined && e.button !== 0) return;
+    if (action) return;
+    setPtr(e); downAt = { x: e.clientX, y: e.clientY };
+    if (mode === 'move') {
+      const wh = pickWindow();
+      if (wh) {
+        const w = WINS[wh.idx], wi = wallInfo(w.wall);
+        selWin = wh.idx; winActive = true; select(null);
+        action = { type: 'win', idx: wh.idx, plane: new THREE.Plane(wi.out.clone(), -wi.out.dot(wi.pos)),
+                   offX: localAlong(w.wall, wh.point) - w.pos, offY: wh.point.y - w.sill };
+        buildRoom(); applyEnv(); begin(e); canvas.style.cursor = 'grabbing';
+        return;
+      }
+      const it = pickFrom(movables), p = floorPoint();
+      if (it && p && it.userData.key === 'bathroom') {   // the bathroom is edited from its options, not dragged
+        if (winActive) { winActive = false; buildRoom(); applyEnv(); }
+        select(it);
+        return;
+      }
+      if (it && p) {
+        if (winActive) { winActive = false; buildRoom(); applyEnv(); }
+        select(it);
+        action = { type: 'drag', item: it, off: p.sub(it.position), start: it.position.clone(), carry: [] };
+        const isTopItem = FURN[it.userData.key] && FURN[it.userData.key].onTop;
+        if (it.userData.key === 'bathroom' || !isTopItem) {
+          const inv = new THREE.Matrix4().copy(it.matrixWorld).invert(), lp = new THREE.Vector3();
+          movables.forEach(function (o) {
+            if (o === it) return;
+            const onIt = FURN[o.userData.key] && FURN[o.userData.key].onTop && o.userData.lift > 0.03;
+            if (it.userData.key !== 'bathroom' && !onIt) return;   // furniture carries what sits on it
+            lp.copy(o.position).applyMatrix4(inv);
+            if (Math.abs(lp.x) < it.userData.w / 2 && Math.abs(lp.z) < it.userData.d / 2) action.carry.push({ o: o, p0: o.position.clone() });
+          });
+        }
+        begin(e); canvas.style.cursor = 'grabbing';
+      }
+    } else if (mode === 'resize') {
+      const h = pickFrom(handleG.children);
+      if (h) { action = { type: 'resize', side: h.userData.handle }; begin(e); }
+    } else if (mode === 'erase') {
+      const it = pickFrom(movables);
+      if (it) { eraseItems([it]); hoverItem = null; e.stopPropagation(); controls.enabled = false; setTimeout(() => { controls.enabled = true; }, 0); }
+    } else {
+      const p = floorPoint();
+      if (p && inRoom(p, 0.05)) {
+        const a = clampToRoom(new THREE.Vector3(snap(p.x), 0, snap(p.z)));
+        // remember what was under the pointer: a plain click (no drag) selects it instead of drawing
+        action = { type: mode === 'room' ? 'rect' : 'line', a: a, b: a.clone(), under: pickFrom(movables) }; begin(e);
+      }
+    }
+  }, true);
+
+  canvas.addEventListener('pointermove', function (e) {
+    if (walk) { walkMove(e); return; }
+    setPtr(e);
+    if (action && e.pointerId === action.id && action.type === 'win') {
+      const hp = new THREE.Vector3();
+      if (ray.ray.intersectPlane(action.plane, hp)) {
+        const w = WINS[action.idx];
+        const np = snap(localAlong(w.wall, hp) - action.offX), ns = Math.max(0, snap(hp.y - action.offY));
+        if (Math.abs(np - w.pos) > 0.001 || Math.abs(ns - w.sill) > 0.001) {
+          if (!tryWin(action.idx, { pos: np, sill: ns })) { if (!tryWin(action.idx, { sill: ns })) tryWin(action.idx, { pos: np }); }
+        }
+      }
+      return;
+    }
+    if (action && e.pointerId === action.id) {
+      const p = floorPoint(); if (!p) return;
+      if (action.type === 'drag') {
+        action.item.position.x = p.x - action.off.x; action.item.position.z = p.z - action.off.z; clampItem(action.item);
+        const dx = action.item.position.x - action.start.x, dz = action.item.position.z - action.start.z;
+        action.carry.forEach(function (c) { c.o.position.set(c.p0.x + dx, 0, c.p0.z + dz); });
+        snapToSurface(action.item);
+      } else if (action.type === 'resize') {
+        const v = snap(action.side === 'n' || action.side === 's' ? p.z : p.x);
+        const minW = MIN_W, minD = MIN_D;
+        if (action.side === 'n') R.zMin = Math.max(R.zMax - MAX_D, Math.min(v, R.zMax - minD));
+        if (action.side === 's') R.zMax = Math.min(R.zMin + MAX_D, Math.max(v, R.zMin + minD));
+        if (action.side === 'w') R.xMin = Math.max(R.xMax - MAX_W, Math.min(v, R.xMax - minW));
+        if (action.side === 'e') R.xMax = Math.min(R.xMin + MAX_W, Math.max(v, R.xMin + minW));
+        buildRoom(); movables.forEach(clampItem); applyEnv();
+      } else if (action.type === 'line') {
+        action.b = snapLine(action.a, p);
+        const ty = WALLTYPES[mode];
+        showPreviewSeg(0, action.a.x, action.a.z, action.b.x, action.b.z, ty.h, ty.t);
+      } else if (action.type === 'rect') {
+        const b = clampToRoom(new THREE.Vector3(snap(p.x), 0, snap(p.z))); action.b = b;
+        const a = action.a, x1 = Math.min(a.x, b.x), x2 = Math.max(a.x, b.x), z1 = Math.min(a.z, b.z), z2 = Math.max(a.z, b.z);
+        showPreviewSeg(0, x1, z1, x2, z1, H, T); showPreviewSeg(1, x1, z2, x2, z2, H, T);
+        showPreviewSeg(2, x1, z1, x1, z2, H, T); showPreviewSeg(3, x2, z1, x2, z2, H, T);
+      }
+      return;
+    }
+    if (mode === 'erase') { hoverItem = pickFrom(movables); canvas.style.cursor = hoverItem ? 'pointer' : 'default'; }
+    if (e.pointerType === 'mouse') {
+      if (mode === 'move') canvas.style.cursor = (pickWindow() || pickFrom(movables)) ? 'grab' : 'default';
+      else if (mode === 'resize') canvas.style.cursor = pickFrom(handleG.children) ? 'grab' : 'default';
+    }
+  });
+
+  function endPointer(e) {
+    if (walk) { walkUp(e); return; }
+    const clickOnly = downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 5;
+    if (action && e.pointerId === action.id && (action.type === 'line' || action.type === 'rect') && clickOnly) {
+      hidePreviews();
+      select(action.under || null);   // tap an existing wall to select it (then 삭제 appears)
+      action = null; controls.enabled = true;
+      try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+      downAt = null; return;
+    }
+    if (action && e.pointerId === action.id) {
+      if (action.type === 'line') {
+        wallBetween(mode, action.a.x, action.a.z, action.b.x, action.b.z);
+      } else if (action.type === 'rect') {
+        const a = action.a, b = action.b, x1 = Math.min(a.x, b.x), x2 = Math.max(a.x, b.x), z1 = Math.min(a.z, b.z), z2 = Math.max(a.z, b.z);
+        if (x2 - x1 >= 0.8 && z2 - z1 >= 0.8) {
+          const h = T / 2, GAP = 0.9, before = movables.length, roomId = 'room' + Date.now();
+          // one side of the room; if it is the entrance, leave a gap (and hang a door in it)
+          const side = function (name, ax, az, bx, bz, vertical) {
+            const len = Math.hypot(bx - ax, bz - az);
+            if (roomEntry !== name || len < GAP + 0.2) { wallBetween('wall', ax, az, bx, bz); return; }
+            const mx = (ax + bx) / 2, mz = (az + bz) / 2, ux = (bx - ax) / len, uz = (bz - az) / len;
+            wallBetween('wall', ax, az, mx - ux * GAP / 2, mz - uz * GAP / 2);
+            wallBetween('wall', mx + ux * GAP / 2, mz + uz * GAP / 2, bx, bz);
+            if (roomDoor !== 'none') placeItem(makeFurniture(roomDoor), mx, mz, vertical ? 90 : 0);
+          };
+          side('top', x1 - h, z1, x2 + h, z1, false);
+          side('bottom', x1 - h, z2, x2 + h, z2, false);
+          side('left', x1, z1 + h, x1, z2 - h, true);
+          side('right', x2, z1 + h, x2, z2 - h, true);
+          movables.slice(before).forEach((g) => { g.userData.roomId = roomId; });
+        }
+      }
+      hidePreviews();
+      action = null; controls.enabled = true;
+      if (mode === 'move') canvas.style.cursor = 'grab';
+      try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+    } else if (downAt && mode === 'move') {
+      if (Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 5) {
+        setPtr(e);
+        if (!pickFrom(movables)) { select(null); if (winActive && !pickWindow()) { winActive = false; buildRoom(); applyEnv(); } }
+      }
+    }
+    downAt = null;
+  }
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+
+  window.addEventListener('keydown', function (e) {
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT') return;
+    if (walk) return;
+    if (e.key === 'r' || e.key === 'R' || e.key === 'ㄱ') rotateSelected(e.shiftKey ? -15 : 15);
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); eraseItems([selected]); }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undoErase(); }
+    if (e.key === 'Escape') { select(null); setMode('move'); }
+  });
+
+  // ---------- panel controls ----------
+  $('timeIn').addEventListener('input', applyEnv);
+  $('lightBtn').addEventListener('click', () => { lightsOn = !lightsOn; applyEnv(); });
+
+  function applyFloor(opt) {
+    floorOpt = opt;
+    if (!opt.tex) opt.tex = opt.make();
+    M.floor.map = opt.tex; M.floor.needsUpdate = true;
+    opt.tex.repeat.set((R.xMax - R.xMin) / opt.m, (R.zMax - R.zMin) / opt.m);
+    document.querySelectorAll('#floorSw .sw').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.key === opt.key)));
+  }
+  FLOORS.forEach(function (f) {
+    const b = document.createElement('button'); b.className = 'sw'; b.dataset.key = f.key;
+    b.innerHTML = '<span class="chip" style="background:' + f.chip + '"></span>' + f.label;
+    b.addEventListener('click', () => { applyFloor(f); $('floorCustom').value = f.chip; }); $('floorSw').appendChild(b);
+  });
+  function colorPicker(parent, id, value, label, onInput) {
+    const lab = document.createElement('label'); lab.className = 'colorpick';
+    lab.innerHTML = '<input type="color" id="' + id + '" value="' + value + '" aria-label="' + label + '">직접 고르기';
+    parent.appendChild(lab);
+    $(id).addEventListener('input', function () { onInput(this.value); });
+  }
+  // custom floor colour keeps the current pattern (wood planks, tiles, porcelain or vinyl)
+  let floorTexTimer = null;
+  colorPicker($('floorSw'), 'floorCustom', '#C9A57A', '바닥 색 직접 고르기', function (hex) {
+    clearTimeout(floorTexTimer);
+    floorTexTimer = setTimeout(function () {
+      const kind = floorOpt.kind, prevCustom = floorOpt.key === 'custom' ? floorOpt.tex : null;
+      const opt = { key: 'custom', kind: kind, m: floorOpt.m, chip: hex, tex: FLOOR_MAKERS[kind](hex) };
+      applyFloor(opt);
+      if (prevCustom) prevCustom.dispose();
+    }, 60);
+  });
+
+  function swatchRow(parent, colors, onPick) {
+    colors.forEach(function (c) {
+      const b = document.createElement('button'); b.className = 'sw'; b.dataset.hex = c[1];
+      b.innerHTML = '<span class="chip" style="background:' + c[1] + '"></span>' + c[0];
+      b.addEventListener('click', () => onPick(c[1])); parent.appendChild(b);
+    });
+  }
+  function markSwatch(parent, hex) {
+    parent.querySelectorAll('.sw').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.hex.toLowerCase() === hex.toLowerCase())));
+  }
+  function setBathFloor(hex) {
+    const old = [M.tile.map, M.showerTile.map];
+    M.tile.map = tileTex(hex, shade(hex, 0.78), 4);
+    M.showerTile.map = tileTex(shade(hex, 0.85), shade(hex, 0.66), 6);
+    M.tile.needsUpdate = M.showerTile.needsUpdate = true;
+    old.forEach((t) => t && t.dispose());
+    markSwatch($('bathFloorSw'), hex); $('bathFloorCustom').value = hex;
+  }
+  function setBathWall(hex) {
+    const old = M.bathWall.map;
+    M.bathWall.map = wallTileTex(hex, shade(hex, 0.82)); M.bathWall.needsUpdate = true;
+    if (old) old.dispose();
+    markSwatch($('bathWallSw'), hex); $('bathWallCustom').value = hex;
+  }
+  swatchRow($('bathFloorSw'), TILE_COLORS, setBathFloor);
+  colorPicker($('bathFloorSw'), 'bathFloorCustom', '#d9dee0', '화장실 바닥 타일 색 직접 고르기', setBathFloor);
+  swatchRow($('bathWallSw'), TILE_COLORS, setBathWall);
+  colorPicker($('bathWallSw'), 'bathWallCustom', '#eef0f0', '화장실 벽 타일 색 직접 고르기', setBathWall);
+  markSwatch($('bathWallSw'), '#eef0f0');
+
+  function applyWall(hex) {
+    M.wall.color.set(hex);
+    document.querySelectorAll('#wallSw .sw').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.hex.toLowerCase() === hex.toLowerCase())));
+  }
+  WALLPAPERS.forEach(function (w) {
+    const b = document.createElement('button'); b.className = 'sw'; b.dataset.hex = w[1];
+    b.innerHTML = '<span class="chip" style="background:' + w[1] + '"></span>' + w[0];
+    b.addEventListener('click', () => { applyWall(w[1]); $('wallCustom').value = w[1]; }); $('wallSw').appendChild(b);
+  });
+  const cp = document.createElement('label'); cp.className = 'colorpick';
+  cp.innerHTML = '<input type="color" id="wallCustom" value="#F1EFEA" aria-label="벽지 색 직접 고르기">직접 고르기';
+  $('wallSw').appendChild(cp);
+  $('wallCustom').addEventListener('input', function () { applyWall(this.value); });
+
+  const CATS = [
+    ['가구', ['bedSS', 'bedQ', 'nightstand', 'desk', 'chair', 'wardrobe', 'drawer', 'bookshelf', 'sofa', 'tv', 'rug', 'lowtable']],
+    ['조명', ['mood', 'floorlamp', 'desklamp']],
+    ['문', ['door', 'slidedoor', 'doorframe']],
+    ['주방·현관', ['kitchen', 'fridge', 'microwave', 'shoes']],
+    ['화장실', ['bathroom', 'toilet', 'sink', 'shower', 'paper', 'towelbar', 'trash', 'bathmat']]
+  ];
+  CATS.forEach(function (c) {
+    const og = document.createElement('optgroup'); og.label = c[0];
+    c[1].forEach(function (k) { const o = document.createElement('option'); o.value = k; o.textContent = FURN[k].name; og.appendChild(o); });
+    $('addSel').appendChild(og);
+  });
+  let addCount = -1;
+  $('addBtn').addEventListener('click', function () {
+    setMode('move');
+    addCount = (addCount + 1) % 5;
+    const g = placeItem(makeFurniture($('addSel').value), (R.xMin + R.xMax) / 2 - 0.6 + addCount * 0.3, (R.zMin + R.zMax) / 2 - 0.5 + addCount * 0.15, 0);
+    snapToSurface(g);
+    select(g);
+  });
+
+  let resetArmed = null;
+  $('resetBtn').addEventListener('click', function () {
+    const btn = this;
+    if (!resetArmed) {
+      btn.textContent = '한 번 더 누르면 초기화'; btn.classList.add('danger');
+      resetArmed = setTimeout(function () { resetArmed = null; btn.textContent = '방 비우기'; btn.classList.remove('danger'); }, 3000);
+      return;
+    }
+    clearTimeout(resetArmed); resetArmed = null; btn.textContent = '방 비우기'; btn.classList.remove('danger');
+    // empty the room: remove every piece of furniture (including the starter set) and every tool-made wall,
+    // leaving only the room shell (outer walls, window, door, bathroom, kitchen built-ins)
+    select(null);
+    movables.slice().forEach(removeItem);
+    undoStack.splice(0).forEach((l) => l.forEach(disposeTree)); $('undoBtn').disabled = true;
+    $('addSel').selectedIndex = 0;
+    setMode('move');
+  });
+
+  const panel = $('panel');
+
+  // 폰 화면용 탭 칩: 섹션 제목(h2)마다 칩을 만들고 한 번에 한 섹션만 보여준다.
+  const sheetSections = Array.from(panel.querySelectorAll('.pbody > section'));
+  const mtabs = document.createElement('div'); mtabs.className = 'mtabs';
+  const chipRow = document.createElement('div'); chipRow.className = 'chips';
+  chipRow.setAttribute('role', 'group'); chipRow.setAttribute('aria-label', '설정 메뉴');
+  const foldBtn = document.createElement('button'); foldBtn.className = 'fold';
+  const chipBtns = sheetSections.map((s, i) => {
+    const b = document.createElement('button');
+    b.textContent = s.querySelector('h2').textContent;
+    b.addEventListener('click', () => {
+      const open = !panel.classList.contains('collapsed') && s.classList.contains('active');
+      if (open) { setCollapsed(true); return; }
+      showSection(i); setCollapsed(false);
+      b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+    chipRow.appendChild(b);
+    return b;
+  });
+  foldBtn.addEventListener('click', () => setCollapsed(!panel.classList.contains('collapsed')));
+  mtabs.append(chipRow, foldBtn);
+  panel.insertBefore(mtabs, panel.querySelector('.pbody'));
+
+  function syncChips() {
+    const c = panel.classList.contains('collapsed');
+    sheetSections.forEach((s, i) => chipBtns[i].setAttribute('aria-pressed', String(!c && s.classList.contains('active'))));
+    foldBtn.textContent = c ? '▴' : '▾';
+    foldBtn.setAttribute('aria-label', c ? '메뉴 펼치기' : '메뉴 접기');
+    foldBtn.setAttribute('aria-expanded', String(!c));
+  }
+  function showSection(i) {
+    sheetSections.forEach((s, j) => s.classList.toggle('active', i === j));
+    panel.querySelector('.pbody').scrollTop = 0;
+    syncChips();
+    if (typeof applyViewOffset === 'function') applyViewOffset();
+  }
+  function setCollapsed(c) {
+    panel.classList.toggle('collapsed', c);
+    $('collapseBtn').textContent = c ? '펼치기' : '접기';
+    $('collapseBtn').setAttribute('aria-expanded', String(!c));
+    syncChips();
+    if (typeof applyViewOffset === 'function') applyViewOffset();
+  }
+  $('collapseBtn').addEventListener('click', () => setCollapsed(!panel.classList.contains('collapsed')));
+  showSection(0);
+  setCollapsed(true);
+
+  // 폰 화면에서 가구를 선택하면 아래 시트를 숨기고 선택 바만 보여준다.
+  new MutationObserver(() => {
+    document.body.classList.toggle('has-sel', !$('selbar').hidden);
+    if (typeof applyViewOffset === 'function') applyViewOffset();
+  }).observe($('selbar'), { attributes: true, attributeFilter: ['hidden'] });
+  // 칩 줄은 마우스로 끌어서도 넘길 수 있게 한다 (터치는 기본 가로 스크롤 사용). 휠도 가로로 넘긴다.
+  let chipDrag = null, chipDragMoved = false;
+  chipRow.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch' || e.button !== 0) return;
+    chipDrag = { x: e.clientX, left: chipRow.scrollLeft, id: e.pointerId }; chipDragMoved = false;
+  });
+  chipRow.addEventListener('pointermove', (e) => {
+    if (!chipDrag || e.pointerId !== chipDrag.id) return;
+    const dx = e.clientX - chipDrag.x;
+    if (!chipDragMoved && Math.abs(dx) > 5) {
+      chipDragMoved = true; chipRow.classList.add('dragging'); try { chipRow.setPointerCapture(e.pointerId); } catch (_) {}
+    }
+    if (chipDragMoved) chipRow.scrollLeft = chipDrag.left - dx;
+  });
+  function endChipDrag() { chipDrag = null; chipRow.classList.remove('dragging'); }
+  chipRow.addEventListener('pointerup', endChipDrag);
+  chipRow.addEventListener('pointercancel', endChipDrag);
+  chipRow.addEventListener('click', (e) => {
+    if (chipDragMoved) { e.stopPropagation(); e.preventDefault(); chipDragMoved = false; }
+  }, true);
+  chipRow.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    chipRow.scrollLeft += e.deltaY; e.preventDefault();
+  }, { passive: false });
+
+  // ---------- typed room size ----------
+  function applyTypedSize(id) {
+    const el = $(id), isW = id === 'roomW';
+    const lo = isW ? MIN_W : MIN_D, hi = isW ? MAX_W : MAX_D;
+    let v = parseFloat(el.value);
+    if (!isFinite(v)) { buildRoom(); return; }
+    const m = Math.min(hi, Math.max(lo, Math.round(v / 5) * 5 / 100));
+    if (Math.abs(m * 100 - v) > 0.5) $('roomMsg').textContent = (isW ? '가로' : '세로') + '는 ' + Math.round(lo * 100) + '~' + Math.round(hi * 100) + 'cm 사이, 5cm 단위로 맞췄어요.';
+    else $('roomMsg').textContent = '위쪽·왼쪽 벽은 그대로 두고 오른쪽·아래 벽이 움직여요.';
+    if (isW) R.xMax = R.xMin + m; else R.zMax = R.zMin + m;
+    el.value = Math.round(m * 100);
+    buildRoom(); movables.forEach(clampItem); applyEnv();
+  }
+  ['roomW', 'roomD'].forEach(function (id) {
+    $(id).addEventListener('change', () => applyTypedSize(id));
+    $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); this.blur(); } });
+  });
+
+  // ---------- window controls ----------
+  [['winW', 'w'], ['winH', 'h'], ['winS', 'sill'], ['winO', 'pos']].forEach(function (pair) {
+    $(pair[0]).addEventListener('input', function () {
+      if (!WINS.length) return;
+      winActive = true;
+      const ch = {}; ch[pair[1]] = +this.value;
+      if (!tryWin(selWin, ch)) { winMsg('다른 창문이나 현관문과 겹쳐서 더 이상 바꿀 수 없어요.'); syncWinUI(); }
+      else winMsg('창문을 직접 끌면 벽을 따라 옮겨지고, 위아래로 끌면 높이가 바뀌어요.');
+    });
+  });
+  $('winC').addEventListener('input', function () {
+    if (!WINS.length) return;
+    WINS[selWin].curtain = +this.value / 100; updateCurtain(WINS[selWin]); applyEnv(); syncWinUI();
+  });
+  document.querySelectorAll('[data-win]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (!WINS.length) return;
+      winActive = true;
+      const pr = Object.assign({}, WIN_PRESETS[b.dataset.win]);
+      if (b.dataset.win === 'full') { const sp = freeSpan(selWin); pr.w = sp[1] - sp[0]; pr.pos = (sp[0] + sp[1]) / 2; }
+      else pr.pos = WINS[selWin].pos;
+      if (!tryWin(selWin, pr)) winMsg('이 자리에는 그 크기가 들어가지 않아요. 창문을 옮긴 뒤 다시 해보세요.');
+    });
+  });
+  document.querySelectorAll('[data-wall]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (!WINS.length) return;
+      const k = b.dataset.wall, w = WINS[selWin];
+      if (k === w.wall) return;
+      const pos = findSpot(w, k, selWin);
+      if (pos === null) { winMsg(WALL_NAME[k] + ' 벽에는 빈 자리가 없어요.'); return; }
+      winActive = true; tryWin(selWin, { wall: k, pos: pos });
+      winMsg('창문을 ' + WALL_NAME[k] + ' 벽으로 옮겼어요.');
+    });
+  });
+  $('winDel').addEventListener('click', function () {
+    if (!WINS.length) return;
+    WINS.splice(selWin, 1); selWin = Math.max(0, selWin - 1);
+    buildRoom(); applyEnv(); winMsg(WINS.length ? '창문을 삭제했어요.' : '창문이 없어요. "+ 창문 추가"로 새로 넣을 수 있어요.');
+  });
+  // animate all curtains open/closed so the light fades naturally
+  let curtainAnim = null;
+  function animateCurtains(target) {
+    curtainAnim = { t: 0, from: WINS.map((w) => w.curtain), to: target };
+    if (reduceMotion) curtainAnim.t = 0.999;
+  }
+  $('openAll').addEventListener('click', () => animateCurtains(1));
+  $('closeAll').addEventListener('click', () => animateCurtains(0));
+  document.querySelectorAll('[data-face]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      face = b.dataset.face;
+      document.querySelectorAll('[data-face]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      applyEnv();
+    });
+  });
+
+  // ---------- cutaway ----------
+  const cutPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1.0);
+  let cut = false;
+  function applyCut() {
+    const list = [M.wall, M.bathWall, M.frame, M.glass, M.curtain, M.rod, M.door, M.upper, M.showerGlass, M.mirror, M.fixtureHigh, M.acWhite, M.wallpad, M.towel2];
+    list.forEach(function (m) { m.clippingPlanes = cut ? [cutPlane] : []; m.needsUpdate = true; });
+    movables.forEach(function (g) { (g.userData.parts || []).forEach(function (pt) {
+      if (list.indexOf(pt.src) >= 0) { pt.mat.clippingPlanes = cut ? [cutPlane] : []; pt.mat.needsUpdate = true; }
+    }); });
+    M.wall.side = cut ? THREE.DoubleSide : THREE.FrontSide;
+    $('cutBtn').setAttribute('aria-pressed', String(cut));
+  }
+  $('cutBtn').addEventListener('click', () => { cut = !cut; applyCut(); });
+
+  // ---------- camera ----------
+  function applyViewOffset() {
+    const W = window.innerWidth, Hh = window.innerHeight;
+    if (document.body.classList.contains('walking')) camera.clearViewOffset();
+    else {
+      // 아래쪽 시트(또는 선택 바)가 가리는 만큼 방을 위로 올려서 보이는 영역 가운데에 둔다.
+      const cover = document.body.classList.contains('has-sel') ? $('selbar').offsetHeight : document.querySelector('.hud').offsetHeight;
+      if (cover > 0) camera.setViewOffset(W, Hh, 0, Math.round(cover / 2), W, Hh);
+      else camera.clearViewOffset();
+    }
+    camera.updateProjectionMatrix();
+  }
+  function roomCenter() { return new THREE.Vector3((R.xMin + R.xMax) / 2, 0, (R.zMin + R.zMax) / 2); }
+  function view3dPose() {
+    const c = roomCenter(), s = Math.max(R.xMax - R.xMin, R.zMax - R.zMin) / 6, k = (camera.aspect < 0.7 ? 1.9 : camera.aspect < 1 ? 1.6 : 1.12) * Math.max(1, s);
+    return { pos: new THREE.Vector3(c.x - 3.6 * k, 6.2 * k, c.z + 5.8 * k), target: new THREE.Vector3(c.x, 0.4, c.z - 0.6) };
+  }
+  function viewTopPose() {
+    const c = roomCenter(), s = Math.max((R.zMax - R.zMin) / 6, (R.xMax - R.xMin) / 3.6 / Math.max(camera.aspect, 0.3) * 0.6);
+    const k = Math.max(1, s) * (camera.aspect < 0.6 ? 1.35 : 1);
+    return { pos: new THREE.Vector3(c.x, 11 * k, c.z + 0.001), target: c };
+  }
+  let fly = null;
+  function setView(v) {
+    $('view3d').setAttribute('aria-pressed', String(v === '3d'));
+    $('viewTop').setAttribute('aria-pressed', String(v === 'top'));
+    const pose = v === '3d' ? view3dPose() : viewTopPose();
+    if (reduceMotion) { camera.position.copy(pose.pos); controls.target.copy(pose.target); controls.update(); return; }
+    fly = { t: 0, fromP: camera.position.clone(), fromT: controls.target.clone(), toP: pose.pos, toT: pose.target };
+  }
+  $('view3d').addEventListener('click', () => setView('3d'));
+  $('viewTop').addEventListener('click', () => setView('top'));
+  window.addEventListener('resize', function () {
+    camera.aspect = window.innerWidth / window.innerHeight; applyViewOffset();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // ---------- init ----------
+  applyFloor(FLOORS[0]);
+  buildRoom();
+  initialLayout();
+  applyWall(WALLPAPERS[0][1]);
+  applyEnv();
+  setMode('move');
+  applyViewOffset();
+  const p0 = view3dPose(); camera.position.copy(p0.pos); controls.target.copy(p0.target); controls.update();
+
+  // ---------- first-person walk ----------
+  const keys = {}, WP = new THREE.Vector3();
+  let yaw = 0, pitch = 0, bobT = 0, saved = null, look = null, cutBeforeWalk = false;
+  const colRay = new THREE.Raycaster(), aimRay = new THREE.Raycaster();
+  function eyeHeight() { const hcm = Math.min(220, Math.max(100, +$('heightIn').value || 170)); return hcm / 100 - 0.11; }
+  function colliders() { return [roomG].concat(movables); }
+  function blocked(dx, dz) {
+    const len = Math.hypot(dx, dz); if (len < 1e-6) return false;
+    const dir = new THREE.Vector3(dx / len, 0, dz / len), objs = colliders();
+    for (const hy of [0.25, 0.5, 0.95, 1.5]) {
+      colRay.set(new THREE.Vector3(WP.x, hy, WP.z), dir); colRay.far = len + 0.25;
+      const hits = colRay.intersectObjects(objs, true);
+      if (hits.some((h) => h.object.isMesh && !h.object.userData.ceiling)) return true;
+    }
+    return false;
+  }
+  function aimTarget() {
+    aimRay.setFromCamera({ x: 0, y: 0 }, camera); aimRay.far = 2.4;
+    const hits = aimRay.intersectObjects(colliders(), true);
+    for (const h of hits) {
+      const o = h.object;
+      if (o.userData.entrance) return { kind: 'entrance' };
+      let g = o; while (g && !(g.userData && g.userData.item)) g = g.parent;
+      if (g) {
+        const f = FURN[g.userData.key];
+        if (f && f.isDoor) return { kind: 'door', g: g };
+        if (o.userData.bathDoor) return { kind: 'door', g: g };
+        if (g.userData.lightObj) return { kind: 'lamp', g: g };
+      }
+      return null;   // something else is in front
+    }
+    return null;
+  }
+  function useTarget() {
+    const t = aimTarget(); if (!t) return;
+    if (t.kind === 'entrance') { entranceOpen = !entranceOpen; buildRoom(); applyEnv(); }
+    else if (t.kind === 'door') { t.g.userData.open = !t.g.userData.open; rebuildItem(t.g); }
+    else if (t.kind === 'lamp') { t.g.userData.on = !t.g.userData.on; applyLamp(t.g); }
+  }
+  function walkPrompt() {
+    const t = aimTarget();
+    let txt = '';
+    if (t && t.kind === 'entrance') txt = 'E · 현관문 ' + (entranceOpen ? '닫기' : '열기');
+    else if (t && t.kind === 'door') txt = 'E · 문 ' + (t.g.userData.open ? '닫기' : '열기');
+    else if (t && t.kind === 'lamp') txt = 'E · ' + t.g.userData.name + ' ' + (t.g.userData.on ? '끄기' : '켜기');
+    if ($('walkPrompt').textContent !== txt) $('walkPrompt').textContent = txt;
+  }
+  function enterWalk() {
+    if (walk) return;
+    select(null); setMode('move'); if (winActive) winActive = false;
+    saved = { pos: camera.position.clone(), target: controls.target.clone() };
+    cutBeforeWalk = cut; if (cut) { cut = false; applyCut(); }
+    walk = true; fly = null; controls.enabled = false;
+    document.body.classList.add('walking'); $('walkHud').hidden = false;
+    camera.fov = 70; camera.near = 0.05; camera.clearViewOffset(); camera.updateProjectionMatrix();
+    // start outside the front door, facing it
+    WP.set(R.xMin + 0.75, 0, R.zMax + 1.1); yaw = 0; pitch = 0;
+    buildRoom(); applyEnv();
+    canvas.style.cursor = 'crosshair';
+  }
+  function exitWalk() {
+    if (!walk) return;
+    walk = false; Object.keys(keys).forEach((k) => { keys[k] = false; });
+    if (document.pointerLockElement) document.exitPointerLock();
+    document.body.classList.remove('walking'); $('walkHud').hidden = true;
+    camera.fov = 45; camera.near = 0.1; camera.rotation.set(0, 0, 0);
+    camera.position.copy(saved.pos); controls.target.copy(saved.target);
+    applyViewOffset(); controls.enabled = true; controls.update();
+    if (cutBeforeWalk) { cut = true; applyCut(); }
+    buildRoom(); applyEnv(); canvas.style.cursor = 'default';
+  }
+  function walkStep(dt) {
+    const run = keys.ShiftLeft || keys.ShiftRight;
+    let f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
+    let r = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+    let moving = false;
+    if (f || r) {
+      const n = Math.hypot(f, r); f /= n; r /= n;
+      const sp = (run ? 2.6 : 1.4) * Math.min(dt, 0.1);
+      const mx = (-Math.sin(yaw) * f + Math.cos(yaw) * r) * sp, mz = (-Math.cos(yaw) * f - Math.sin(yaw) * r) * sp;
+      if (!blocked(mx, 0)) { WP.x += mx; moving = true; }
+      if (!blocked(0, mz)) { WP.z += mz; moving = true; }
+    }
+    bobT = moving ? bobT + dt * (run ? 11 : 7.5) : bobT * 0.9;
+    const bob = reduceMotion ? 0 : Math.sin(bobT) * 0.018;
+    camera.position.set(WP.x, eyeHeight() + bob, WP.z);
+    camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    walkPrompt();
+  }
+  function lookBy(dx, dy) {
+    yaw -= dx * 0.0028; pitch -= dy * 0.0028;
+    pitch = Math.max(-1.45, Math.min(1.45, pitch));
+  }
+  function walkDown(e) { look = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, id: e.pointerId }; try { canvas.setPointerCapture(e.pointerId); } catch (err) {} }
+  function walkMove(e) {
+    if (document.pointerLockElement === canvas) { lookBy(e.movementX || 0, e.movementY || 0); return; }
+    if (look && e.pointerId === look.id) { lookBy(e.clientX - look.x, e.clientY - look.y); look.x = e.clientX; look.y = e.clientY; }
+  }
+  function walkUp(e) {
+    const wasClick = look && Math.hypot(e.clientX - look.sx, e.clientY - look.sy) < 5;
+    look = null;
+    if (!wasClick && document.pointerLockElement !== canvas) return;
+    if (aimTarget()) useTarget();
+    else if (document.pointerLockElement !== canvas && e.pointerType === 'mouse' && canvas.requestPointerLock) {
+      try { const pr = canvas.requestPointerLock(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {}
+    }
+  }
+  window.addEventListener('keydown', function (e) {
+    if (!walk || e.target.tagName === 'INPUT') return;
+    if (e.code === 'Escape') { exitWalk(); return; }
+    if (e.code === 'KeyE' || e.code === 'Space') { e.preventDefault(); if (!e.repeat) useTarget(); return; }
+    if (/^(Key[WASD]|Arrow(Up|Down|Left|Right)|Shift(Left|Right))$/.test(e.code)) { e.preventDefault(); keys[e.code] = true; }
+  });
+  window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+  window.addEventListener('blur', function () { Object.keys(keys).forEach((k) => { keys[k] = false; }); });
+  $('walkBtn').addEventListener('click', enterWalk);
+  $('walkExit').addEventListener('click', exitWalk);
+  $('padUse').addEventListener('click', useTarget);
+  document.querySelectorAll('.walkPad [data-k]').forEach(function (b) {
+    const k = b.dataset.k;
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); keys[k] = true; });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => b.addEventListener(ev, () => { keys[k] = false; }));
+  });
+
+  // ---------- loop ----------
+  const tmp = new THREE.Vector3(), clock = new THREE.Clock();
+  function tick() {
+    const dt = clock.getDelta();
+    if (fly) {
+      fly.t = Math.min(1, fly.t + dt / 0.7);
+      const k = 1 - Math.pow(1 - fly.t, 3);
+      camera.position.lerpVectors(fly.fromP, fly.toP, k);
+      controls.target.lerpVectors(fly.fromT, fly.toT, k);
+      if (fly.t >= 1) fly = null;
+    }
+    if (walk) walkStep(dt); else controls.update();
+    if (curtainAnim) {
+      curtainAnim.t = Math.min(1, curtainAnim.t + dt / 1.4);
+      const k = curtainAnim.t < 0.5 ? 2 * curtainAnim.t * curtainAnim.t : 1 - Math.pow(-2 * curtainAnim.t + 2, 2) / 2;
+      WINS.forEach(function (w, i) { const f0 = curtainAnim.from[i] !== undefined ? curtainAnim.from[i] : w.curtain; w.curtain = f0 + (curtainAnim.to - f0) * k; updateCurtain(w); });
+      applyEnv();
+      if (curtainAnim.t >= 1) { curtainAnim = null; syncWinUI(); }
+    }
+
+    // walls facing the camera become invisible but still cast shadows (so curtains/walls keep blocking sun)
+    outerWalls.forEach(function (w) {
+      tmp.copy(camera.position).sub(w.center);
+      const hide = !walk && tmp.dot(w.normal) > 0.15;
+      if (hide !== w.hidden) {
+        w.hidden = hide;
+        w.g.traverse(function (m) { if (m.isMesh) m.material = hide ? M.hiddenWall : m.userData.mat; });
+      }
+    });
+
+    const lampItem = movables.find((g) => g.userData.lamp);
+    if (lampItem && lightsOn) { lampItem.userData.lamp.getWorldPosition(tmp); lampLight.position.copy(tmp).setY(tmp.y + 0.12); lampLight.intensity = 0.9; }
+    else lampLight.intensity = 0;
+
+    eraseOutline.visible = mode === 'erase' && !!hoverItem && movables.indexOf(hoverItem) >= 0;
+    if (eraseOutline.visible) {
+      const hu = hoverItem.userData;
+      eraseOutline.position.set(hoverItem.position.x, 0.03, hoverItem.position.z);
+      eraseOutline.rotation.y = hoverItem.rotation.y;
+      eraseOutline.scale.set(hu.w + 0.1, 1, hu.d + 0.1);
+    }
+    if (selected) {
+      const u = selected.userData;
+      outline.position.set(selected.position.x, 0.02, selected.position.z);
+      outline.rotation.y = selected.rotation.y;
+      outline.scale.set(u.w + 0.08, 1, u.d + 0.08);
+    }
+    renderer.render(scene, camera);
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+</script>
+</body>
+</html>
