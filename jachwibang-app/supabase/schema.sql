@@ -54,14 +54,28 @@ create table if not exists public.room_furniture (
 
 create index if not exists room_furniture_user_id_idx on public.room_furniture (user_id);
 
+-- rooms: 내가 저장한 3D 방 (본인만 접근)
+create table if not exists public.rooms (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  name text not null check (char_length(name) between 1 and 40),
+  data jsonb not null check (pg_column_size(data) < 262144),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists rooms_user_id_updated_at_idx on public.rooms (user_id, updated_at desc);
+
 -- community_posts: 커뮤니티 글 (본문·주제, 선택적으로 배치 스냅샷)
--- 이미 테이블을 만든 경우에는 migrations/002_community_posts_body.sql 을 실행하세요.
+-- 이미 테이블을 만든 경우에는 migrations/002, 003 을 순서대로 실행하세요.
 create table if not exists public.community_posts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   placed jsonb not null default '[]'::jsonb,
   body text not null check (char_length(body) between 1 and 1000),
   topic text not null default '잡담',
+  room jsonb check (room is null or pg_column_size(room) < 262144), -- 공유한 3D 방의 복사본
+  room_name text,
   likes_count integer not null default 0,
   created_at timestamptz not null default now()
 );
@@ -117,6 +131,7 @@ alter table public.room_furniture enable row level security;
 alter table public.community_posts enable row level security;
 alter table public.community_post_likes enable row level security;
 alter table public.community_comments enable row level security;
+alter table public.rooms enable row level security;
 
 create policy "profiles are readable by everyone" on public.profiles
   for select using (true);
@@ -137,6 +152,9 @@ create policy "users update or delete their own posts" on public.community_posts
   for update using (auth.uid() = user_id);
 create policy "users delete their own posts" on public.community_posts
   for delete using (auth.uid() = user_id);
+
+create policy "users manage their own rooms" on public.rooms
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "likes are readable by everyone" on public.community_post_likes
   for select using (true);

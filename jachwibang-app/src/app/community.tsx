@@ -1,8 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ComposeSheet } from '@/components/community/compose-sheet';
+import { RoomViewer } from '@/components/community/room-viewer';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
@@ -20,6 +22,14 @@ export default function CommunityScreen() {
     useCommunity();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('전체');
   const [composeOpen, setComposeOpen] = useState(false);
+  const [viewing, setViewing] = useState<Post | null>(null);
+
+  // Pick up posts shared from the 3D tab (or by others) whenever this tab comes into view.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   const visible = filter === '전체' ? posts : posts.filter((p) => p.topic === filter);
 
@@ -89,6 +99,7 @@ export default function CommunityScreen() {
             mine={post.user_id === me}
             me={me}
             onToggleLike={() => report(toggleLike(post), '좋아요를 반영하지 못했어요')}
+            onOpenRoom={() => setViewing(post)}
             onDelete={async () => {
               if (await confirmAsync('글 삭제', '이 글을 삭제할까요? 댓글도 함께 지워져요.', '삭제')) {
                 report(deletePost(post.id), '삭제하지 못했어요');
@@ -107,6 +118,12 @@ export default function CommunityScreen() {
       <View style={{ height: 56 }} />
 
       <ComposeSheet visible={composeOpen} onClose={() => setComposeOpen(false)} onSubmit={createPost} />
+      <RoomViewer
+        room={viewing?.room ?? null}
+        title={viewing ? `${viewing.author}님의 방` : ''}
+        subtitle={viewing?.room_name}
+        onClose={() => setViewing(null)}
+      />
     </Screen>
   );
 }
@@ -116,6 +133,7 @@ function PostCard({
   mine,
   me,
   onToggleLike,
+  onOpenRoom,
   onDelete,
   onAddComment,
   onDeleteComment,
@@ -124,6 +142,7 @@ function PostCard({
   mine: boolean;
   me: string | null;
   onToggleLike: () => void;
+  onOpenRoom: () => void;
   onDelete: () => void;
   onAddComment: (text: string) => Promise<{ error: string | null }>;
   onDeleteComment: (c: PostComment) => void;
@@ -167,6 +186,25 @@ function PostCard({
       </View>
 
       <Text style={[styles.body, { color: theme.text }]}>{post.body}</Text>
+
+      {post.room ? (
+        <Pressable onPress={onOpenRoom} accessibilityRole="button" accessibilityLabel="3D 방 둘러보기">
+          {({ pressed }) => (
+            <View style={[styles.roomTile, { backgroundColor: theme.accentSoft }, pressed && { opacity: 0.8 }]}>
+              <View style={[styles.roomIcon, { backgroundColor: theme.accent }]}>
+                <Ionicons name="cube-outline" size={22} color={theme.onAccent} />
+              </View>
+              <View style={styles.roomText}>
+                <Text style={[styles.roomTitle, { color: theme.text }]} numberOfLines={1}>
+                  {post.room_name || `${post.author}님의 방`}
+                </Text>
+                <Text style={[styles.meta, { color: theme.textSecondary }]}>눌러서 3인칭·1인칭으로 둘러보기</Text>
+              </View>
+              <Ionicons name="play-circle-outline" size={24} color={theme.accent} />
+            </View>
+          )}
+        </Pressable>
+      ) : null}
 
       <View style={styles.actionsRow}>
         <Pressable style={styles.actionItem} onPress={onToggleLike} hitSlop={6} accessibilityLabel="좋아요">
@@ -248,6 +286,10 @@ const styles = StyleSheet.create({
   topic: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   topicText: { fontSize: 12, fontWeight: '700' },
   body: { fontSize: 15, lineHeight: 22 },
+  roomTile: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, padding: Spacing.three, borderRadius: 14 },
+  roomIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  roomText: { flex: 1, gap: 2 },
+  roomTitle: { fontSize: 15, fontWeight: '700' },
   actionsRow: { flexDirection: 'row', gap: Spacing.four },
   actionItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   actionCount: { fontSize: 13 },

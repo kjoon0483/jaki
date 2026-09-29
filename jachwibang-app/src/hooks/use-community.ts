@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
+import { AttachedRoom, communityError as friendlyError, insertPost, POST_COLUMNS, PostRow } from '@/lib/community';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-state';
 
@@ -12,13 +13,7 @@ export interface PostComment {
   author: string;
 }
 
-export interface Post {
-  id: string;
-  user_id: string;
-  body: string;
-  topic: string;
-  likes_count: number;
-  created_at: string;
+export interface Post extends PostRow {
   author: string;
   likedByMe: boolean;
   comments: PostComment[];
@@ -26,17 +21,8 @@ export interface Post {
 
 const PAGE_SIZE = 50;
 
-/** Turns Postgres/PostgREST errors into something actionable for this app. */
-function friendlyError(message: string) {
-  if (/column .*(body|topic)|(body|topic).* does not exist|schema cache/i.test(message)) {
-    return '커뮤니티 DB 업데이트가 필요해요. Supabase SQL Editor에서 supabase/migrations/002_community_posts_body.sql 을 실행해주세요.';
-  }
-  if (/relation .* does not exist/i.test(message)) {
-    return '커뮤니티 테이블이 없어요. Supabase SQL Editor에서 supabase/schema.sql 을 실행해주세요.';
-  }
-  return message;
-}
 
+/** Community feed state. Call `refresh()` to load (the screen does it whenever it comes into focus). */
 export function useCommunity() {
   const { session } = useAuth();
   const me = session?.user.id ?? null;
@@ -52,7 +38,7 @@ export function useCommunity() {
     setLoading(true);
     const { data: rows, error: postsError } = await supabase
       .from('community_posts')
-      .select('id, user_id, body, topic, likes_count, created_at')
+      .select(POST_COLUMNS)
       .order('created_at', { ascending: false })
       .limit(PAGE_SIZE);
     if (postsError) {
@@ -60,7 +46,7 @@ export function useCommunity() {
       setLoading(false);
       return;
     }
-    const postRows = rows ?? [];
+    const postRows = (rows ?? []) as PostRow[];
     const ids = postRows.map((p) => p.id);
 
     const [commentsRes, likesRes] = ids.length
@@ -105,20 +91,12 @@ export function useCommunity() {
     setLoading(false);
   }, [me, myName]);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
   const createPost = useCallback(
-    async (body: string, topic: string) => {
+    async (body: string, topic: string, room?: AttachedRoom | null) => {
       if (!me) return { error: '로그인이 필요해요.' };
-      const { data, error: insertError } = await supabase
-        .from('community_posts')
-        .insert({ user_id: me, body: body.trim(), topic })
-        .select('id, user_id, body, topic, likes_count, created_at')
-        .single();
-      if (insertError) return { error: friendlyError(insertError.message) };
-      setPosts((prev) => [{ ...data, author: myName, likedByMe: false, comments: [] }, ...prev]);
+      const { post, error: insertError } = await insertPost(me, body, topic, room);
+      if (insertError || !post) return { error: insertError ?? '글을 올리지 못했어요.' };
+      setPosts((prev) => [{ ...post, author: myName, likedByMe: false, comments: [] }, ...prev]);
       return { error: null };
     },
     [me, myName]
