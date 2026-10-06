@@ -36,6 +36,7 @@ create table if not exists public.expenses (
   amount integer not null check (amount >= 0),
   spent_on date not null default current_date,
   memo text,
+  is_income boolean not null default false, -- true = 수입, false = 지출
   created_at timestamptz not null default now()
 );
 

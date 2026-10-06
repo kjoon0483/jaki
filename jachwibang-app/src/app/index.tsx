@@ -36,13 +36,13 @@ export default function HomeScreen() {
   // Compare against last month up to the same day, so early in the month isn't unfairly "less".
   const thisSoFar = sumForMonth(expenses, thisMonth, now.getDate());
   const lastSoFar = sumForMonth(expenses, lastMonthKey, now.getDate());
-  const hasLastMonth = expenses.some((e) => e.spent_on.startsWith(lastMonthKey));
+  const hasLastMonth = expenses.some((e) => !e.is_income && e.spent_on.startsWith(lastMonthKey));
   const diff = thisSoFar - lastSoFar;
 
   const topCategory = useMemo(() => {
     const map: Record<string, number> = {};
     expenses.forEach((e) => {
-      if (e.spent_on.startsWith(thisMonth)) map[e.category] = (map[e.category] ?? 0) + e.amount;
+      if (!e.is_income && e.spent_on.startsWith(thisMonth)) map[e.category] = (map[e.category] ?? 0) + e.amount;
     });
     const [category, amount] = Object.entries(map).sort((a, b) => b[1] - a[1])[0] ?? [];
     return category ? { category, amount } : null;
@@ -140,7 +140,7 @@ export default function HomeScreen() {
       </Pressable>
 
       <View style={styles.section}>
-        <SectionHeader title="최근 기록" action="+ 지출 기록" onAction={() => setExpenseOpen(true)} />
+        <SectionHeader title="최근 기록" action="+ 기록하기" onAction={() => setExpenseOpen(true)} />
         <Card style={styles.list}>
           {recent.length === 0 ? (
             <Pressable onPress={() => setExpenseOpen(true)} style={styles.empty} accessibilityRole="button">
@@ -170,7 +170,10 @@ export default function HomeScreen() {
                     {e.memo ? ` · ${e.category}` : ''}
                   </Text>
                 </View>
-                <Text style={[styles.activityAmount, { color: theme.text }]}>{formatWon(e.amount)}</Text>
+                <Text style={[styles.activityAmount, { color: e.is_income ? theme.income : theme.expense }]}>
+                  {e.is_income ? '+' : '−'}
+                  {formatWon(e.amount)}
+                </Text>
               </Pressable>
             ))
           )}

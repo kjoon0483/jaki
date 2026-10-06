@@ -25,6 +25,9 @@ export const Colors = {
     warm: '#B5673F', // 테라코타 화분: 강조·하이라이트 (아이콘·큰 글자용)
     success: '#3F6B2A',
     danger: '#A83A34',
+    // 가계부 금액 색: 수입은 파랑, 지출은 빨강 (가계부 관례)
+    income: '#2D62A8',
+    expense: '#B23A32',
     border: 'rgba(34,40,31,0.12)',
   },
   dark: {
@@ -41,6 +44,8 @@ export const Colors = {
     warm: '#D49A7A',
     success: '#97BD7C',
     danger: '#D4837A',
+    income: '#8DB2E0',
+    expense: '#E08A80',
     border: 'rgba(241,239,231,0.12)',
   },
 } as const;
