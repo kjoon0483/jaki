@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 
 import { ComposeSheet } from '@/components/community/compose-sheet';
 import { RoomPreview } from '@/components/community/room-preview';
+import { RoomThumbMaker } from '@/components/community/room-thumbs';
 import { RoomViewer } from '@/components/community/room-viewer';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
@@ -12,6 +13,7 @@ import { Spacing } from '@/constants/theme';
 import { POST_TOPICS } from '@/data/topics';
 import { Post, PostComment, useCommunity } from '@/hooks/use-community';
 import { useTheme } from '@/hooks/use-theme';
+import { savePostRoomThumb } from '@/lib/community';
 import { confirmAsync, notify } from '@/lib/confirm';
 import { timeAgo } from '@/lib/dates';
 
@@ -118,6 +120,7 @@ export default function CommunityScreen() {
       {/* Keeps the last card clear of the floating button. */}
       <View style={{ height: 56 }} />
 
+      <RoomThumbMaker />
       <ComposeSheet visible={composeOpen} onClose={() => setComposeOpen(false)} onSubmit={createPost} />
       <RoomViewer
         room={viewing?.room ?? null}
@@ -192,22 +195,22 @@ function PostCard({
       {room ? (
         <Pressable onPress={onOpenRoom} accessibilityRole="button" accessibilityLabel="3D 방 둘러보기">
           {({ pressed }) => (
-            <View style={[styles.roomTile, { backgroundColor: theme.accentSoft }, pressed && { opacity: 0.8 }]}>
-              <View>
-                <RoomPreview room={room} />
-                <View style={[styles.roomBadge, { backgroundColor: theme.accent }]}>
-                  <Ionicons name="cube-outline" size={13} color={theme.onAccent} />
-                  <Text style={[styles.roomBadgeText, { color: theme.onAccent }]}>3D</Text>
-                </View>
-              </View>
-              <View style={styles.roomFooter}>
+            <View style={[styles.roomShot, pressed && { opacity: 0.85 }]}>
+              <RoomPreview
+                room={room}
+                cacheKey={`post:${post.id}`}
+                // My own older post: store the photo on it so everyone sees it without waiting.
+                onGenerated={mine ? (thumb) => savePostRoomThumb(post.id, room, thumb) : undefined}
+              />
+              {/* Caption over the bottom of the shot, like a photo post. */}
+              <View style={styles.roomCaption}>
                 <View style={styles.roomText}>
-                  <Text style={[styles.roomTitle, { color: theme.text }]} numberOfLines={1}>
+                  <Text style={styles.roomTitle} numberOfLines={1}>
                     {post.room_name || `${post.author}님의 방`}
                   </Text>
-                  <Text style={[styles.meta, { color: theme.textSecondary }]}>눌러서 3인칭·1인칭으로 둘러보기</Text>
+                  <Text style={styles.roomHint}>눌러서 3D로 둘러보기</Text>
                 </View>
-                <Ionicons name="play-circle-outline" size={24} color={theme.accent} />
+                <Ionicons name="play-circle" size={30} color="#FFFFFF" />
               </View>
             </View>
           )}
@@ -294,22 +297,25 @@ const styles = StyleSheet.create({
   topic: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   topicText: { fontSize: 12, fontWeight: '700' },
   body: { fontSize: 15, lineHeight: 22 },
-  roomTile: { gap: Spacing.three, padding: Spacing.two, paddingBottom: Spacing.three, borderRadius: 14 },
-  roomBadge: {
+  // Smaller than the card so the 640x800 photo stays sharp on high-density phone screens.
+  roomShot: { width: '72%', maxWidth: 300 },
+  roomCaption: {
     position: 'absolute',
-    top: Spacing.two,
-    left: Spacing.two,
+    left: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
+    gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
-  roomBadgeText: { fontSize: 12, fontWeight: '800' },
-  roomFooter: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingHorizontal: Spacing.two },
   roomText: { flex: 1, gap: 2 },
-  roomTitle: { fontSize: 15, fontWeight: '700' },
+  roomTitle: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  roomHint: { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
   actionsRow: { flexDirection: 'row', gap: Spacing.four },
   actionItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   actionCount: { fontSize: 13 },

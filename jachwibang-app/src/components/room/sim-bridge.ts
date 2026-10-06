@@ -22,6 +22,8 @@ export interface RoomSimulatorProps {
   readonly?: boolean;
   /** Room to show once the simulator has started. */
   initialState?: RoomData | null;
+  /** Never draws on its own (a hidden page that only takes preview photos), to save battery. */
+  paused?: boolean;
   ref?: Ref<RoomSimulatorHandle>;
 }
 
@@ -32,13 +34,13 @@ type OutMsg = { type: string; [k: string]: unknown };
  * to the page (WebView.injectJavaScript on native, iframe.postMessage on web); the platform view
  * calls `onMessage` with whatever the page posts back.
  */
-export function useSimBridge(send: (msg: OutMsg) => void, { readonly, initialState, ref }: RoomSimulatorProps) {
+export function useSimBridge(send: (msg: OutMsg) => void, { readonly, initialState, paused, ref }: RoomSimulatorProps) {
   const ready = useRef(false);
   const queue = useRef<OutMsg[]>([]);
   const pending = useRef(new Map<number, (s: RoomData) => void>());
   const nextId = useRef(1);
-  const init = useRef({ readonly, initialState });
-  init.current = { readonly, initialState };
+  const init = useRef({ readonly, initialState, paused });
+  init.current = { readonly, initialState, paused };
 
   const post = useCallback(
     (msg: OutMsg) => {
@@ -55,7 +57,12 @@ export function useSimBridge(send: (msg: OutMsg) => void, { readonly, initialSta
       if (m.type === 'ready') {
         // The page (re)started: hand it the room + mode, then flush anything sent early.
         ready.current = true;
-        send({ type: 'init', readonly: !!init.current.readonly, state: init.current.initialState ?? null });
+        send({
+          type: 'init',
+          readonly: !!init.current.readonly,
+          paused: !!init.current.paused,
+          state: init.current.initialState ?? null,
+        });
         queue.current.splice(0).forEach(send);
       } else if (m.type === 'state' && m.id !== undefined && m.state) {
         pending.current.get(m.id)?.(m.state);

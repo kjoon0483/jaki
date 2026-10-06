@@ -41,6 +41,15 @@ export function communityError(message: string) {
   return message;
 }
 
+/**
+ * Adds a preview photo to the room on one of my own posts (rooms shared before photos existed),
+ * so everyone sees it straight away from then on. Best effort: RLS only lets the author do this.
+ */
+export async function savePostRoomThumb(postId: string, room: RoomData, thumb: string) {
+  const { error } = await supabase.from('community_posts').update({ room: { ...room, thumb } }).eq('id', postId);
+  return { error: error?.message ?? null };
+}
+
 export async function insertPost(userId: string, body: string, topic: string, room?: AttachedRoom | null) {
   const insert = (columns: string) =>
     supabase

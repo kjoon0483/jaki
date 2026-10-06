@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { RoomPreview } from '@/components/community/room-preview';
+import { withGeneratedThumb } from '@/components/community/room-thumbs';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { Spacing } from '@/constants/theme';
@@ -46,10 +47,13 @@ export function ComposeSheet({
 
   const picked = rooms.find((r) => r.id === roomId);
   const attached: AttachedRoom | null = fixedRoom ?? (picked ? { name: picked.name, data: picked.data } : null);
+  // Rooms saved before photos existed get one rendered here, which is then posted along with the room.
+  const thumbKey = picked && !fixedRoom ? `saved:${picked.id}:${picked.updated_at}` : undefined;
 
   async function submit() {
     setSaving(true);
-    const { error: submitError } = await onSubmit(body, topic, attached);
+    const room = attached ? { ...attached, data: withGeneratedThumb(attached.data, thumbKey) } : null;
+    const { error: submitError } = await onSubmit(body, topic, room);
     setSaving(false);
     if (submitError) setError(submitError);
     else onClose();
@@ -110,7 +114,7 @@ export function ComposeSheet({
           )}
         </View>
       )}
-      {attached ? <RoomPreview room={attached.data} style={styles.preview} /> : null}
+      {attached ? <RoomPreview room={attached.data} cacheKey={thumbKey} style={styles.preview} /> : null}
 
       <TextInput
         value={body}
@@ -144,7 +148,7 @@ const styles = StyleSheet.create({
   roomCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, padding: Spacing.three, borderRadius: 14 },
   roomName: { flex: 1, fontSize: 14, fontWeight: '700' },
   roomHint: { fontSize: 12, lineHeight: 18 },
-  preview: { aspectRatio: 16 / 9 },
+  preview: { width: '55%', alignSelf: 'center' },
   input: { minHeight: 140, borderRadius: 14, padding: Spacing.three, fontSize: 15, lineHeight: 22 },
   count: { fontSize: 12, textAlign: 'right', marginTop: -Spacing.two },
   error: { fontSize: 13, lineHeight: 19 },
