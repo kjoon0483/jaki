@@ -37,7 +37,7 @@ export default function RoomScreen() {
 
   async function snapshot() {
     try {
-      return await sim.current!.serialize();
+      return await sim.current!.serialize({ thumb: true });
     } catch (e) {
       notify('방을 읽지 못했어요', (e as Error).message);
       return null;

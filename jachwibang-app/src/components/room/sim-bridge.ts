@@ -2,11 +2,15 @@ import { useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import type { Ref } from 'react';
 
 /** Serialized room from oneroom.html (`serialize()` there). Opaque to the app apart from the version. */
-export type RoomData = { v: 1 } & Record<string, unknown>;
+export type RoomData = {
+  v: 1;
+  /** Small JPEG data URL of the default 3D view, used as a preview. Missing on rooms saved before it existed. */
+  thumb?: string;
+} & Record<string, unknown>;
 
 export interface RoomSimulatorHandle {
-  /** Asks the simulator for the current room. */
-  serialize: () => Promise<RoomData>;
+  /** Asks the simulator for the current room; with `thumb`, also takes a preview photo of it. */
+  serialize: (opts?: { thumb?: boolean }) => Promise<RoomData>;
   /** Replaces the room in the simulator. */
   load: (state: RoomData) => void;
   /** Reloads the simulator with its default starter room. */
@@ -64,11 +68,11 @@ export function useSimBridge(send: (msg: OutMsg) => void, { readonly, initialSta
   useImperativeHandle(
     ref,
     () => ({
-      serialize: () =>
+      serialize: (opts) =>
         new Promise<RoomData>((resolve, reject) => {
           const id = nextId.current++;
           pending.current.set(id, resolve);
-          post({ type: 'serialize', id });
+          post({ type: 'serialize', id, thumb: !!opts?.thumb });
           setTimeout(() => {
             if (pending.current.delete(id)) reject(new Error('3D 화면이 응답하지 않아요. 잠시 후 다시 시도해주세요.'));
           }, 8000);

@@ -2229,7 +2229,11 @@
     if (!msg || typeof msg !== 'object') return;
     if (msg.type === 'init') { if (msg.state) loadState(msg.state); setReadonly(msg.readonly); sendToApp({ type: 'loaded' }); }
     else if (msg.type === 'load') { const ok = loadState(msg.state); sendToApp({ type: 'loaded', ok: ok }); }
-    else if (msg.type === 'serialize') sendToApp({ type: 'state', id: msg.id, state: serialize() });
+    else if (msg.type === 'serialize') {
+      const st = serialize();
+      if (msg.thumb) { const t = captureThumb(); if (t) st.thumb = t; }
+      sendToApp({ type: 'state', id: msg.id, state: st });
+    }
     else if (msg.type === 'reset') location.reload();
   }
   window.__oneroomReceive = receive;   // native: injectJavaScript(...)
@@ -2240,6 +2244,46 @@
 
   // ---------- loop ----------
   const tmp = new THREE.Vector3(), clock = new THREE.Clock();
+  // walls facing the camera become invisible but still cast shadows (so curtains/walls keep blocking sun)
+  function updateHiddenWalls(forceOutside) {
+    outerWalls.forEach(function (w) {
+      tmp.copy(camera.position).sub(w.center);
+      const hide = (forceOutside || !walk) && tmp.dot(w.normal) > 0.15;
+      if (hide !== w.hidden) {
+        w.hidden = hide;
+        w.g.traverse(function (m) { if (m.isMesh) m.material = hide ? M.hiddenWall : m.userData.mat; });
+      }
+    });
+  }
+
+  // 커뮤니티 미리보기용 사진: 기본 3D 시점으로 한 장 찍어 작은 JPEG(data URL)로 돌려준다.
+  // 화면에 보이는 카메라·크기는 같은 프레임 안에서 원래대로 돌려놓아서 깜빡이지 않는다.
+  const THUMB_W = 480, THUMB_H = 360;
+  function captureThumb() {
+    const saved = { pos: camera.position.clone(), quat: camera.quaternion.clone(), aspect: camera.aspect };
+    const hidden = [outline, eraseOutline].concat(previews).filter((o) => o.visible);
+    hidden.forEach((o) => { o.visible = false; });
+    try {
+      renderer.setSize(THUMB_W, THUMB_H, false);
+      camera.aspect = THUMB_W / THUMB_H; camera.clearViewOffset(); camera.updateProjectionMatrix();
+      const p = view3dPose(); camera.position.copy(p.pos); camera.lookAt(p.target);
+      updateHiddenWalls(true);
+      renderer.render(scene, camera);
+      const out = document.createElement('canvas'); out.width = THUMB_W; out.height = THUMB_H;
+      out.getContext('2d').drawImage(canvas, 0, 0, THUMB_W, THUMB_H);
+      return out.toDataURL('image/jpeg', 0.72);
+    } catch (e) {
+      return null;
+    } finally {
+      hidden.forEach((o) => { o.visible = true; });
+      renderer.setSize(window.innerWidth, window.innerHeight, false);
+      camera.position.copy(saved.pos); camera.quaternion.copy(saved.quat);
+      camera.aspect = saved.aspect; applyViewOffset();
+      updateHiddenWalls();
+      renderer.render(scene, camera);
+    }
+  }
+
   function tick() {
     const dt = clock.getDelta();
     if (fly) {
@@ -2258,15 +2302,7 @@
       if (curtainAnim.t >= 1) { curtainAnim = null; syncWinUI(); }
     }
 
-    // walls facing the camera become invisible but still cast shadows (so curtains/walls keep blocking sun)
-    outerWalls.forEach(function (w) {
-      tmp.copy(camera.position).sub(w.center);
-      const hide = !walk && tmp.dot(w.normal) > 0.15;
-      if (hide !== w.hidden) {
-        w.hidden = hide;
-        w.g.traverse(function (m) { if (m.isMesh) m.material = hide ? M.hiddenWall : m.userData.mat; });
-      }
-    });
+    updateHiddenWalls();
 
     const lampItem = movables.find((g) => g.userData.lamp);
     if (lampItem && lightsOn) { lampItem.userData.lamp.getWorldPosition(tmp); lampLight.position.copy(tmp).setY(tmp.y + 0.12); lampLight.intensity = 0.9; }

@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { RoomPreview } from '@/components/community/room-preview';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { Spacing } from '@/constants/theme';
@@ -109,6 +110,7 @@ export function ComposeSheet({
           )}
         </View>
       )}
+      {attached ? <RoomPreview room={attached.data} style={styles.preview} /> : null}
 
       <TextInput
         value={body}
@@ -142,6 +144,7 @@ const styles = StyleSheet.create({
   roomCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, padding: Spacing.three, borderRadius: 14 },
   roomName: { flex: 1, fontSize: 14, fontWeight: '700' },
   roomHint: { fontSize: 12, lineHeight: 18 },
+  preview: { aspectRatio: 16 / 9 },
   input: { minHeight: 140, borderRadius: 14, padding: Spacing.three, fontSize: 15, lineHeight: 22 },
   count: { fontSize: 12, textAlign: 'right', marginTop: -Spacing.two },
   error: { fontSize: 13, lineHeight: 19 },

@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ComposeSheet } from '@/components/community/compose-sheet';
+import { RoomPreview } from '@/components/community/room-preview';
 import { RoomViewer } from '@/components/community/room-viewer';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
@@ -149,6 +150,7 @@ function PostCard({
 }) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
+  const room = post.room;
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -187,20 +189,26 @@ function PostCard({
 
       <Text style={[styles.body, { color: theme.text }]}>{post.body}</Text>
 
-      {post.room ? (
+      {room ? (
         <Pressable onPress={onOpenRoom} accessibilityRole="button" accessibilityLabel="3D 방 둘러보기">
           {({ pressed }) => (
             <View style={[styles.roomTile, { backgroundColor: theme.accentSoft }, pressed && { opacity: 0.8 }]}>
-              <View style={[styles.roomIcon, { backgroundColor: theme.accent }]}>
-                <Ionicons name="cube-outline" size={22} color={theme.onAccent} />
+              <View>
+                <RoomPreview room={room} />
+                <View style={[styles.roomBadge, { backgroundColor: theme.accent }]}>
+                  <Ionicons name="cube-outline" size={13} color={theme.onAccent} />
+                  <Text style={[styles.roomBadgeText, { color: theme.onAccent }]}>3D</Text>
+                </View>
               </View>
-              <View style={styles.roomText}>
-                <Text style={[styles.roomTitle, { color: theme.text }]} numberOfLines={1}>
-                  {post.room_name || `${post.author}님의 방`}
-                </Text>
-                <Text style={[styles.meta, { color: theme.textSecondary }]}>눌러서 3인칭·1인칭으로 둘러보기</Text>
+              <View style={styles.roomFooter}>
+                <View style={styles.roomText}>
+                  <Text style={[styles.roomTitle, { color: theme.text }]} numberOfLines={1}>
+                    {post.room_name || `${post.author}님의 방`}
+                  </Text>
+                  <Text style={[styles.meta, { color: theme.textSecondary }]}>눌러서 3인칭·1인칭으로 둘러보기</Text>
+                </View>
+                <Ionicons name="play-circle-outline" size={24} color={theme.accent} />
               </View>
-              <Ionicons name="play-circle-outline" size={24} color={theme.accent} />
             </View>
           )}
         </Pressable>
@@ -286,8 +294,20 @@ const styles = StyleSheet.create({
   topic: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   topicText: { fontSize: 12, fontWeight: '700' },
   body: { fontSize: 15, lineHeight: 22 },
-  roomTile: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, padding: Spacing.three, borderRadius: 14 },
-  roomIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  roomTile: { gap: Spacing.three, padding: Spacing.two, paddingBottom: Spacing.three, borderRadius: 14 },
+  roomBadge: {
+    position: 'absolute',
+    top: Spacing.two,
+    left: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  roomBadgeText: { fontSize: 12, fontWeight: '800' },
+  roomFooter: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingHorizontal: Spacing.two },
   roomText: { flex: 1, gap: 2 },
   roomTitle: { fontSize: 15, fontWeight: '700' },
   actionsRow: { flexDirection: 'row', gap: Spacing.four },
