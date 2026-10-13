@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { AppState, Platform } from 'react-native';
 import 'react-native-url-polyfill/auto';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -19,10 +20,19 @@ export const supabase = createClient(supabaseUrl || 'https://placeholder.supabas
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
-    // Always start on the login screen instead of restoring a previous session.
-    persistSession: false,
+    // Remember the login across refreshes and app restarts (stored via AsyncStorage / localStorage on web).
+    persistSession: true,
     // Required so the app can pick up the session from a signup-confirmation
     // or password-recovery email link when it lands back in the app.
     detectSessionInUrl: true,
   },
 });
+
+// On phones, only refresh the saved login token while the app is open, so a session
+// restored after a long time in the background is renewed as soon as the app returns.
+if (Platform.OS !== 'web') {
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active') supabase.auth.startAutoRefresh();
+    else supabase.auth.stopAutoRefresh();
+  });
+}
