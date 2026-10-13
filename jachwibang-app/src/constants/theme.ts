@@ -84,4 +84,5 @@ export const Spacing = {
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+/** Width of the app column on wide (web) screens, so it reads like a phone app instead of stretching. */
+export const MaxContentWidth = 480;
