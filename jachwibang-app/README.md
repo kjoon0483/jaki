@@ -59,21 +59,20 @@ SQL을 실행했는데 앱에서 칸을 못 찾는다고 나오면 `notify pgrst
 
 ## 3D 시뮬레이터 수정
 
-3D 화면은 `assets/simulator/oneroom.html` 한 파일입니다. 고친 뒤에는 앱에서 쓰는 파일을 다시 만들어야 합니다.
+3D 화면은 두 파일로 이루어져 있어요.
+
+| 파일 | 역할 |
+| --- | --- |
+| `assets/simulator/oneroom-standalone.html` | **원본.** 브라우저에서 혼자 열리는 시뮬레이터예요. 3D 화면을 고칠 땐 이 파일을 고쳐요. |
+| `assets/simulator/oneroom.html` | 원본에 앱 연결 부분을 붙인 결과물이에요. 직접 고치지 않아요(다음에 다시 만들면 덮어써져요). |
+
+원본을 고친 뒤 아래 한 줄을 실행하면 앱 연결 부분(저장·불러오기, 커뮤니티 보기 전용, 미리보기 사진, 앱 색상, 휴대폰용 목록·조이스틱·도움말)을 붙여 `oneroom.html`과 앱이 쓰는 `src/generated/oneroom-html.ts`까지 다시 만들어요.
 
 ```bash
-npm run build:simulator
+npm run embed:simulator
 ```
 
-`src/generated/oneroom-html.ts`는 자동 생성 파일이라 직접 고치지 않습니다.
-
-팀에서 시뮬레이터 **새 버전(혼자 열리는 HTML 파일)**을 받았다면, 아래 한 줄로 앱 연결 부분(저장·불러오기, 커뮤니티 보기 전용, 미리보기 사진, 앱 색상, 휴대폰용 패널)을 붙여서 교체할 수 있어요.
-
-```bash
-npm run embed:simulator -- "../새 시뮬레이터.html"
-```
-
-새 버전에서 고칠 자리를 못 찾으면 어디인지 알려주고 멈춥니다. 예전 시뮬레이터로 저장한 방도 새 화면에서 열려요.
+다른 위치의 새 버전 파일을 쓰려면 경로를 넘기세요: `npm run embed:simulator -- "../새 시뮬레이터.html"`. 붙이는 내용은 `scripts/embed-simulator.js`에 있어요. 원본에서 고칠 자리를 못 찾으면 어디인지 알려주고 멈춥니다. 예전 시뮬레이터로 저장한 방도 새 화면에서 열려요.
 
 ## 웹 배포 (Vercel)
 

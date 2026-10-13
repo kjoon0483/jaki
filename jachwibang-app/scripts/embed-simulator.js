@@ -1,13 +1,14 @@
 // 혼자 돌아가는 원룸 시뮬레이터 HTML(팀에서 받은 새 버전)에 앱 연결 부분을 붙여
 // assets/simulator/oneroom.html 로 저장하고, 앱이 쓰는 파일(src/generated)까지 다시 만든다.
-//   npm run embed:simulator -- "../새 시뮬레이터.html"
+//   npm run embed:simulator                       (assets/simulator/oneroom-standalone.html 사용)
+//   npm run embed:simulator -- "../새 시뮬레이터.html"   (다른 파일 사용)
 // 붙이는 것: 앱과 메시지 주고받기(저장·불러오기·미리보기 사진), 커뮤니티 보기 전용 모드,
 // 앱 초록 색상, 휴대폰용 아래쪽 패널, 앱 안에서는 브라우저 자동 저장 끄기, 예전 형식 방 불러오기.
 // 새 버전에서 고칠 자리를 못 찾으면 어디인지 알려주고 멈춘다.
 const fs = require('fs');
 const path = require('path');
-const src = process.argv[2];
-if (!src) throw new Error('사용법: npm run embed:simulator -- "<시뮬레이터.html>"');
+// 기본 원본: assets/simulator/oneroom-standalone.html (팀이 고치는 혼자 열리는 시뮬레이터). 다른 파일을 쓰려면 경로를 넘긴다.
+const src = process.argv[2] || path.join(__dirname, '..', 'assets', 'simulator', 'oneroom-standalone.html');
 const out = path.join(__dirname, '..', 'assets', 'simulator', 'oneroom.html');
 let s = fs.readFileSync(src, 'utf8').replace(/\r\n/g, '\n');
 
