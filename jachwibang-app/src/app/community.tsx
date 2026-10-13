@@ -44,7 +44,10 @@ export default function CommunityScreen() {
   const [viewing, setViewing] = useState<Post | null>(null);
   // Someone else's post or comment whose report/block menu is open.
   const [safety, setSafety] = useState<{ post: Post } | { comment: PostComment } | null>(null);
+  // Worked out up front with no `!`: the React Compiler may evaluate JSX props outside their
+  // ternary, so `safetyUser!.author` crashed the whole screen while the menu was closed.
   const safetyUser = safety ? ('post' in safety ? safety.post : safety.comment) : null;
+  const safetyTarget = safety && safetyUser ? { kind: 'post' in safety ? ('post' as const) : ('comment' as const), author: safetyUser.author } : null;
 
   // Pick up posts shared from the 3D tab (or by others) whenever this tab comes into view.
   useFocusEffect(
@@ -164,10 +167,10 @@ export default function CommunityScreen() {
         onClose={() => setViewing(null)}
       />
       <SafetySheet
-        target={safety ? { kind: 'post' in safety ? 'post' : 'comment', author: safetyUser!.author } : null}
+        target={safetyTarget}
         onClose={() => setSafety(null)}
-        onReport={(reason) => reportContent(safety!, reason)}
-        onBlock={() => block(safetyUser!.user_id)}
+        onReport={(reason) => (safety ? reportContent(safety, reason) : Promise.resolve({ error: null }))}
+        onBlock={() => (safetyUser ? block(safetyUser.user_id) : Promise.resolve({ error: null }))}
       />
     </Screen>
   );
