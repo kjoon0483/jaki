@@ -20,8 +20,9 @@ import { LegalDoc, PRIVACY, TERMS } from '@/data/legal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { MAX_NICKNAME_LEN, MIN_NICKNAME_LEN, MIN_PASSWORD_LEN, PASSWORD_SPECIAL_RE } from '@/lib/account-rules';
+import { isNicknameAvailable } from '@/lib/safety';
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { useAuth } from '@/state/auth-state';
+import { NICKNAME_TAKEN, useAuth } from '@/state/auth-state';
 
 type AuthView = 'login' | 'signup' | 'signup-sent' | 'forgot-request' | 'forgot-sent';
 
@@ -123,6 +124,11 @@ export function AuthScreen() {
     if (view === 'login' || view === 'signup') {
       if (!validateLoginSignup()) return;
       setLoading(true);
+      if (isSignup && !(await isNicknameAvailable(nickname))) {
+        setLoading(false);
+        setFieldErrors({ nickname: NICKNAME_TAKEN });
+        return;
+      }
       const result = isSignup
         ? await signUp(email.trim(), password, nickname.trim())
         : await signIn(email.trim(), password);

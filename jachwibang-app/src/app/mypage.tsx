@@ -4,6 +4,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { LegalSheet } from '@/components/legal-sheet';
+import { BlockedSheet } from '@/components/mypage/blocked-sheet';
 import { MyPost, MyPostsSheet } from '@/components/mypage/my-posts-sheet';
 import { NicknameSheet } from '@/components/mypage/nickname-sheet';
 import { PasswordSheet } from '@/components/mypage/password-sheet';
@@ -11,6 +13,7 @@ import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Spacing } from '@/constants/theme';
+import { LegalDoc, PRIVACY, TERMS } from '@/data/legal';
 import { useRooms } from '@/hooks/use-rooms';
 import { useTheme } from '@/hooks/use-theme';
 import { communityError, LEGACY_POST_COLUMNS } from '@/lib/community';
@@ -31,7 +34,7 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: keyof typeof
 export default function MyPageScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { session, signOut } = useAuth();
+  const { session, signOut, deleteAccount } = useAuth();
   const { preference, setPreference } = useThemePreference();
   const { expenses } = useBudget();
   const { rooms, refresh: refreshRooms } = useRooms(false); // loaded by the focus effect below
@@ -47,6 +50,9 @@ export default function MyPageScreen() {
   const [myPosts, setMyPosts] = useState<MyPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [postsError, setPostsError] = useState<string | null>(null);
+  const [blockedOpen, setBlockedOpen] = useState(false);
+  const [legalDoc, setLegalDoc] = useState<LegalDoc | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadMyPosts = useCallback(async () => {
     if (!me) return;
@@ -81,6 +87,22 @@ export default function MyPageScreen() {
 
   async function handleSignOut() {
     if (await confirmAsync('로그아웃', '로그아웃 하시겠어요?', '로그아웃')) signOut();
+  }
+
+  // Asked twice on purpose: deleting the account can't be undone.
+  async function handleDeleteAccount() {
+    const first = await confirmAsync(
+      '회원 탈퇴',
+      '탈퇴하면 가계부, 저장한 방, 커뮤니티 글과 댓글이 모두 바로 삭제되고 되돌릴 수 없어요.',
+      '계속'
+    );
+    if (!first) return;
+    const second = await confirmAsync('정말 탈퇴할까요?', `${displayName}님의 계정과 모든 기록이 지워져요.`, '탈퇴');
+    if (!second) return;
+    setDeleting(true);
+    const { error } = await deleteAccount();
+    setDeleting(false);
+    if (error) notify('탈퇴하지 못했어요', error);
   }
 
   const now = new Date();
@@ -164,13 +186,28 @@ export default function MyPageScreen() {
         <Card style={styles.menu}>
           <MenuRow icon="person-outline" label="닉네임 바꾸기" onPress={() => setNicknameOpen(true)} />
           <MenuRow icon="lock-closed-outline" label="비밀번호 변경" onPress={() => setPasswordOpen(true)} />
+          <MenuRow icon="ban-outline" label="차단한 사용자" onPress={() => setBlockedOpen(true)} />
           <MenuRow icon="log-out-outline" label="로그아웃" danger onPress={handleSignOut} last />
         </Card>
       </View>
 
-      <Text style={[styles.version, { color: theme.textSecondary }]}>
-        자취방 키우기 v{Constants.expoConfig?.version ?? '1.0.0'}
-      </Text>
+      {/* 약관 */}
+      <View style={styles.section}>
+        <SectionHeader title="정보" />
+        <Card style={styles.menu}>
+          <MenuRow icon="document-text-outline" label="이용약관" onPress={() => setLegalDoc(TERMS)} />
+          <MenuRow icon="shield-checkmark-outline" label="개인정보처리방침" onPress={() => setLegalDoc(PRIVACY)} last />
+        </Card>
+      </View>
+
+      <View style={styles.footer}>
+        <Text style={[styles.version, { color: theme.textSecondary }]}>
+          자취방 키우기 v{Constants.expoConfig?.version ?? '1.0.0'}
+        </Text>
+        <Pressable onPress={handleDeleteAccount} disabled={deleting} hitSlop={8} accessibilityRole="button">
+          <Text style={[styles.withdraw, { color: theme.textSecondary }]}>{deleting ? '탈퇴하는 중…' : '회원 탈퇴'}</Text>
+        </Pressable>
+      </View>
 
       <NicknameSheet visible={nicknameOpen} current={nickname} onClose={() => setNicknameOpen(false)} />
       <PasswordSheet visible={passwordOpen} onClose={() => setPasswordOpen(false)} />
@@ -182,6 +219,8 @@ export default function MyPageScreen() {
         onClose={() => setPostsOpen(false)}
         onDelete={deletePost}
       />
+      <BlockedSheet visible={blockedOpen} onClose={() => setBlockedOpen(false)} />
+      <LegalSheet doc={legalDoc} onClose={() => setLegalDoc(null)} />
     </Screen>
   );
 }
@@ -242,5 +281,7 @@ const styles = StyleSheet.create({
   menu: { paddingVertical: 0, gap: 0 },
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: 15 },
   menuText: { flex: 1, fontSize: 15 },
+  footer: { alignItems: 'center', gap: Spacing.three, paddingBottom: Spacing.two },
   version: { fontSize: 12, textAlign: 'center' },
+  withdraw: { fontSize: 12, textDecorationLine: 'underline' },
 });
