@@ -46,3 +46,6 @@ example
 .vercel
 .env*
 !.env.example
+
+# dev server log
+expo-web.log
