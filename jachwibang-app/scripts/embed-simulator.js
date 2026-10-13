@@ -44,7 +44,7 @@ rep(`</style>`, `
   .phead { padding: 8px 12px; align-items: center; }
   .phead h1 { display: none; }
   .viewbar { padding: 0 12px 8px; }
-  .pbody { max-height: min(42vh, 360px); }
+  .pbody { max-height: min(34vh, 300px); }
   body.has-sel .hud { display: none; }
   .helpBtn { padding: 5px 10px; font-size: 12.5px; }
 
@@ -206,6 +206,99 @@ rep(`  // ---------- loop ----------\n`, `  // ---------- 터치 화면(휴대�
       useBtn.disabled = !label;
     } else if (joyId !== null) { joyId = null; setJoy(0, 0); }
     requestAnimationFrame(syncUse);
+  })();
+
+  // ---------- loop ----------
+`);
+
+// 7c) Editing on a small screen: shorter panel, furniture picker buttons, tools fold the panel,
+//     camera follows the room when it grows or shrinks
+rep(`</style>`, `
+  /* ---------- 앱 안: 편집 목록을 작은 화면에 맞게 ---------- */
+  body.embed #modeHelp { display: none; }
+  /* 펼친 동안엔 보기 버튼 줄을 숨겨 3D 화면을 더 남긴다 (접으면 다시 보임) */
+  body.embed .panel:not(.collapsed) .viewbar { display: none; }
+  body.embed .pbody { max-height: min(30vh, 260px); }
+  body.embed section { padding-top: 10px; }
+  body.embed .help { font-size: 12px; }
+  .pick .cats { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 8px; }
+  .pick .cats::-webkit-scrollbar { display: none; }
+  .pick .cats button { white-space: nowrap; flex-shrink: 0; border-radius: 999px; padding: 5px 12px; }
+  .pick .items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .pick .items button { padding: 8px 4px; font-size: 12.5px; line-height: 1.25; word-break: keep-all; }
+  /* 도구를 고르면 목록이 접히고, 위에 지금 하는 일과 [설정]·[완료]가 뜬다 */
+  .modeChip {
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 10px; right: 112px; z-index: 25;
+    display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 12px; font-size: 12.5px;
+  }
+  .modeChip[hidden], body.walking .modeChip, body.readonly .modeChip { display: none; }
+  .modeChip .mcText { flex: 1; min-width: 0; color: var(--muted); line-height: 1.3; }
+  .modeChip .mcText b { color: var(--ink); margin-right: 4px; }
+  .modeChip button { flex-shrink: 0; }
+  .modeChip .mcDone { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+</style>`);
+rep(`  function setMode(m) {\n    mode = m;\n`, `  function setMode(m) {\n    mode = m;\n    if (window.__modeHook) window.__modeHook(m);\n`);
+rep(`  // ---------- loop ----------\n`, `  // ---------- 앱 안: 작은 화면에서 편집하기 ----------
+  document.body.classList.toggle('embed', EMBED);
+  if (EMBED) {
+    // 가구 추가: 드롭다운 대신 종류 버튼 + 가구 버튼. 누르면 바로 놓고 목록을 접어 놓인 가구가 보이게.
+    const sel = $('addSel'), groups = Array.from(sel.querySelectorAll('optgroup'));
+    const pick = document.createElement('div'); pick.className = 'pick';
+    const cats = document.createElement('div'); cats.className = 'cats';
+    cats.setAttribute('role', 'group'); cats.setAttribute('aria-label', '가구 종류');
+    const items = document.createElement('div'); items.className = 'items';
+    function showCat(i) {
+      Array.from(cats.children).forEach((b, j) => b.setAttribute('aria-pressed', String(i === j)));
+      items.textContent = '';
+      Array.from(groups[i].children).forEach(function (o) {
+        const b = document.createElement('button'); b.textContent = o.textContent;
+        b.addEventListener('click', function () { sel.value = o.value; $('addBtn').click(); setCollapsed(true); });
+        items.appendChild(b);
+      });
+    }
+    groups.forEach(function (g, i) {
+      const b = document.createElement('button'); b.textContent = g.label;
+      b.addEventListener('click', () => showCat(i)); cats.appendChild(b);
+    });
+    if (groups.length) { pick.append(cats, items); sel.parentElement.hidden = true; sel.parentElement.after(pick); showCat(0); }
+
+    // 도구를 고르면 목록을 접고 위에 안내를 띄운다. 방 만들기는 입구·문을 골라야 해서 목록을 그대로 둔다.
+    const MODE_TIPS = {
+      resize: '방 밖 손잡이를 끌어 벽을 옮겨요',
+      wall: '바닥을 끌어 벽을 그려요',
+      room: '대각선으로 끌어 방을 만들어요',
+      partition: '바닥을 끌어 칸막이를 세워요',
+      shelfwall: '바닥을 끌어 수납 칸을 세워요',
+      erase: '지울 것을 누르세요'
+    };
+    const chip = document.createElement('div'); chip.className = 'card modeChip'; chip.hidden = true;
+    const chipText = document.createElement('span'); chipText.className = 'mcText';
+    const chipOpen = document.createElement('button'); chipOpen.textContent = '설정';
+    const chipDone = document.createElement('button'); chipDone.className = 'mcDone'; chipDone.textContent = '완료';
+    chip.append(chipText, chipOpen, chipDone); document.body.appendChild(chip);
+    chipOpen.addEventListener('click', () => setCollapsed(false));
+    chipDone.addEventListener('click', () => setMode('move'));
+    window.__modeHook = function (m) {
+      chip.hidden = m === 'move';
+      if (m === 'move') return;
+      const name = document.createElement('b');
+      name.textContent = (document.querySelector('[data-mode="' + m + '"]') || {}).textContent || '';
+      chipText.textContent = ''; chipText.append(name, MODE_TIPS[m] || '');
+      if (m !== 'room') setCollapsed(true);
+    };
+  }
+
+  // 방 크기·모양이 바뀌면(손잡이를 놓은 뒤) 늘어난 곳까지 보이게 카메라를 방 가운데로 옮긴다.
+  let roomKey = '';
+  (function watchRoom() {
+    if (!walk && !action && !restoring) {
+      const k = [R.xMin, R.xMax, R.zMin, R.zMax].join(',') + '|' + JSON.stringify(CUT);
+      if (k !== roomKey) {
+        if (roomKey) setView($('viewTop').getAttribute('aria-pressed') === 'true' ? 'top' : '3d');
+        roomKey = k;
+      }
+    }
+    requestAnimationFrame(watchRoom);
   })();
 
   // ---------- loop ----------
