@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { LegalSheet } from '@/components/legal-sheet';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { LegalDoc, PRIVACY, TERMS } from '@/data/legal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { MAX_NICKNAME_LEN, MIN_NICKNAME_LEN, MIN_PASSWORD_LEN, PASSWORD_SPECIAL_RE } from '@/lib/account-rules';
@@ -56,6 +58,7 @@ export function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [legalDoc, setLegalDoc] = useState<LegalDoc | null>(null);
 
   const isSignup = view === 'signup';
 
@@ -396,6 +399,15 @@ export function AuthScreen() {
                         (필수) 이용약관 및 개인정보처리방침에 동의하며, 만 14세 이상입니다.
                       </Text>
                     </Pressable>
+                    <View style={styles.legalLinks}>
+                      <Pressable onPress={() => setLegalDoc(TERMS)} hitSlop={6} accessibilityRole="link">
+                        <Text style={[styles.legalLink, { color: theme.accent }]}>이용약관 보기</Text>
+                      </Pressable>
+                      <Text style={[styles.legalLink, { color: theme.textSecondary }]}>·</Text>
+                      <Pressable onPress={() => setLegalDoc(PRIVACY)} hitSlop={6} accessibilityRole="link">
+                        <Text style={[styles.legalLink, { color: theme.accent }]}>개인정보처리방침 보기</Text>
+                      </Pressable>
+                    </View>
                     {fieldErrors.terms ? <Text style={[styles.fieldError, { color: theme.danger }]}>{fieldErrors.terms}</Text> : null}
                   </View>
                 )}
@@ -444,6 +456,7 @@ export function AuthScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <LegalSheet doc={legalDoc} onClose={() => setLegalDoc(null)} />
     </SafeAreaView>
   );
 }
@@ -509,6 +522,8 @@ const styles = StyleSheet.create({
   forgotText: { fontSize: 12, fontWeight: '600' },
   termsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   termsText: { flex: 1, fontSize: 12, lineHeight: 16 },
+  legalLinks: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 26 },
+  legalLink: { fontSize: 12, fontWeight: '600' },
   notice: { fontSize: 12, textAlign: 'center' },
   submitBtn: {
     height: 46,
