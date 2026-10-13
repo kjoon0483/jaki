@@ -255,6 +255,20 @@
   .modeChip .mcText b { color: var(--ink); margin-right: 4px; }
   .modeChip button { flex-shrink: 0; }
   .modeChip .mcDone { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  /* ---------- 앱 안: 탭 안 묶음을 칩으로 나눠 하나씩, 손잡이로 목록 크기 바꾸기 ---------- */
+  .subtabs {
+    display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+    position: sticky; top: 0; z-index: 2; margin: 0 -2px; padding: 10px 2px 6px; background: var(--panel);
+  }
+  .subtabs::-webkit-scrollbar { display: none; }
+  .subtabs button { white-space: nowrap; flex-shrink: 0; border-radius: 999px; padding: 5px 12px; }
+  .hasSub > section { padding-top: 4px; }
+  .hasSub > section > h2, .subhide { display: none !important; }
+  .grip { height: 18px; display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none; }
+  .grip::before { content: ''; width: 40px; height: 5px; border-radius: 3px; background: var(--line); }
+  body.embed .phead { padding-top: 0; }
+  body.embed .panel.tall .pbody { max-height: 58vh; }
 </style>
 </head>
 <body>
@@ -5294,6 +5308,47 @@
     }
     requestAnimationFrame(watchRoom);
   })();
+
+  if (EMBED) {
+    // 탭 안의 묶음(방 크기·외벽 모양·창문·복층…)을 칩으로 나눠 한 번에 하나만 보여준다. 스크롤이 줄어든다.
+    document.querySelectorAll('.tabp').forEach(function (tp) {
+      const secs = Array.from(tp.children).filter((el) => el.tagName === 'SECTION' && !el.hidden && el.querySelector('h2'));
+      if (secs.length < 2) return;
+      const bar = document.createElement('div'); bar.className = 'subtabs';
+      bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', '설정 묶음');
+      const btns = secs.map(function (sec, i) {
+        const b = document.createElement('button'); b.textContent = sec.querySelector('h2').textContent;
+        b.addEventListener('click', () => show(i)); bar.appendChild(b); return b;
+      });
+      function show(i) {
+        secs.forEach((el, j) => el.classList.toggle('subhide', i !== j));
+        btns.forEach((b, j) => b.setAttribute('aria-pressed', String(i === j)));
+        const pb = document.querySelector('.pbody'); if (pb) pb.scrollTop = 0;
+      }
+      tp.classList.add('hasSub'); tp.insertBefore(bar, tp.firstChild); show(0);
+    });
+
+    // 목록 위 손잡이: 누르면 크게/작게, 위로 끌면 크게(접혀 있으면 펼치기), 아래로 끌면 작게 → 접기.
+    const panelEl = $('panel');
+    const grip = document.createElement('div'); grip.className = 'grip';
+    grip.setAttribute('role', 'button'); grip.setAttribute('aria-label', '목록 크기 바꾸기');
+    panelEl.insertBefore(grip, panelEl.firstChild);
+    const setTall = (on) => { panelEl.classList.toggle('tall', on); applyViewOffset(); };
+    let gripStart = null;
+    grip.addEventListener('pointerdown', function (e) {
+      gripStart = e.clientY; try { grip.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    grip.addEventListener('pointerup', function (e) {
+      if (gripStart === null) return;
+      const dy = e.clientY - gripStart; gripStart = null;
+      const folded = panelEl.classList.contains('collapsed'), tall = panelEl.classList.contains('tall');
+      if (Math.abs(dy) < 8) { if (folded) setCollapsed(false); else setTall(!tall); }
+      else if (dy < 0) { if (folded) setCollapsed(false); else setTall(true); }
+      else if (tall) setTall(false);
+      else setCollapsed(true);
+    });
+    grip.addEventListener('pointercancel', () => { gripStart = null; });
+  }
 
   // ---------- loop ----------
   const tmp = new THREE.Vector3(), clock = new THREE.Clock();
