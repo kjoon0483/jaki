@@ -364,6 +364,94 @@ rep(`  // ---------- loop ----------\n`, `  if (EMBED) {
   // ---------- loop ----------
 `);
 
+// 7e) Touch screens: smaller furniture edit bar, touch-only help, first person starts inside the room
+rep(`</style>`, `
+  /* ---------- 터치 화면: 가구 편집 막대를 짧게 (투명도 빼고, 색상은 버튼으로 펼치기) ---------- */
+  body.touch .selop { display: none !important; }
+  body.touch .selbar:not(.colors-open) #colorRow { display: none; }
+  .colorToggle[hidden] { display: none; }
+  /* 터치 화면 도움말 */
+  .touchHelp { display: grid; gap: 4px 0; }
+  .touchHelp h3 { font-size: 13.5px; margin: 14px 0 4px; color: var(--accent); }
+  .touchHelp ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--ink); }
+  .touchHelp li b { font-weight: 600; }
+</style>`);
+rep(`    WP.set(doorX0() + 0.75, 0, R.zMax + 1.1); yaw = 0; pitch = 0; feetY = 0;\n`,
+`    WP.set(doorX0() + 0.75, 0, R.zMax + 1.1); yaw = 0; pitch = 0; feetY = 0;
+    // 휴대폰에서는 현관문 밖이 아니라 방 안 빈 곳에서, 창문 쪽(위쪽 벽)을 보며 시작한다.
+    if (document.body.classList.contains('touch')) { const sp = walkSpawnInside(); if (sp) WP.set(sp.x, 0, sp.z); }
+`);
+rep(`  // ---------- loop ----------\n`, `  // 1인칭 시작 자리: 방 가운데에서 가까운 순서로, 가구·벽·잘린 모서리에서 떨어진 빈 곳.
+  function walkSpawnInside() {
+    const M0 = 0.45, cx = (R.xMin + R.xMax) / 2, cz = (R.zMin + R.zMax) / 2, pts = [];
+    for (let x = R.xMin + M0; x <= R.xMax - M0; x += 0.25) for (let z = R.zMin + M0; z <= R.zMax - M0; z += 0.25) pts.push({ x: x, z: z });
+    pts.sort((a, b) => Math.hypot(a.x - cx, a.z - cz) - Math.hypot(b.x - cx, b.z - cz));
+    const inCut = (p) => ['nw', 'ne', 'sw', 'se'].some(function (c) {
+      const k = CUT[c]; if (!k || !(k[0] > 0 && k[1] > 0)) return false;
+      const inX = c[1] === 'w' ? p.x < R.xMin + k[0] + M0 : p.x > R.xMax - k[0] - M0;
+      const inZ = c[0] === 'n' ? p.z < R.zMin + k[1] + M0 : p.z > R.zMax - k[1] - M0;
+      return inX && inZ;
+    });
+    const occupied = (p) => movables.some(function (g) {
+      const u = g.userData, ry = g.rotation.y, dx = p.x - g.position.x, dz = p.z - g.position.z;
+      const lx = dx * Math.cos(ry) - dz * Math.sin(ry), lz = dx * Math.sin(ry) + dz * Math.cos(ry);
+      return Math.abs(lx) < (u.w || 0.1) / 2 + 0.3 && Math.abs(lz) < (u.d || 0.1) / 2 + 0.3;
+    });
+    return pts.find((p) => !inCut(p) && !occupied(p)) || null;
+  }
+
+  if (TOUCH) {
+    // 가구 편집 막대: 색상은 '색상' 버튼을 눌러야 펼쳐진다 (색을 바꿀 수 없는 물건이면 버튼도 숨김).
+    const selbarEl = $('selbar');
+    const colorBtn = document.createElement('button'); colorBtn.className = 'colorToggle'; colorBtn.textContent = '색상';
+    colorBtn.setAttribute('aria-pressed', 'false');
+    $('lockBtn').before(colorBtn);
+    colorBtn.addEventListener('click', function () {
+      const open = !selbarEl.classList.contains('colors-open');
+      selbarEl.classList.toggle('colors-open', open); colorBtn.setAttribute('aria-pressed', String(open));
+      applyViewOffset();
+    });
+    const syncColorBtn = () => { colorBtn.hidden = $('colorRow').hidden; };
+    new MutationObserver(syncColorBtn).observe($('colorRow'), { attributes: true, attributeFilter: ['hidden'] });
+    syncColorBtn();
+
+    // 휴대폰 키보드에는 Enter 대신 '완료'가 있다.
+    $('roomMsg').textContent = '숫자를 고치고 키보드의 완료를 누르면 바뀌어요.';
+
+    // 도움말: 키보드·마우스 설명 대신 터치 조작만.
+    const card = document.querySelector('.helpCard');
+    card.querySelectorAll('.helpGrid, .helpFoot').forEach((el) => { el.hidden = true; });
+    const th = document.createElement('div'); th.className = 'touchHelp';
+    th.innerHTML =
+      '<h3>화면 움직이기</h3><ul>' +
+      '<li><b>한 손가락으로 끌기</b>: 방을 빙글 돌려 보기</li>' +
+      '<li><b>두 손가락 벌리기·오므리기</b>: 확대·축소</li>' +
+      '<li><b>두 손가락으로 끌기</b>: 보는 위치 옮기기</li>' +
+      '<li><b>3D · 위에서</b>: 처음 시점 · 평면도처럼 위에서 보기</li>' +
+      '<li><b>벽 낮추기</b>: 벽을 낮춰 방 안을 잘 보이게</li></ul>' +
+      '<h3>아래 목록</h3><ul>' +
+      '<li><b>손잡이(─)</b>: 누르면 목록을 크게·작게, 아래로 끌면 접기</li>' +
+      '<li><b>배치 · 방 · 꾸미기 · 환경</b> 탭과 그 아래 칩으로 원하는 설정을 골라요</li></ul>' +
+      '<h3>가구</h3><ul>' +
+      '<li><b>가구 추가</b>에서 종류를 고르고 가구를 누르면 방에 놓여요</li>' +
+      '<li><b>가구 누르기</b>: 선택 · <b>끌기</b>: 옮기기 (작은 물건은 책상·침대 위로 끌면 올라가요)</li>' +
+      '<li>아래 막대에서 각도·크기를 바꾸고, <b>색상</b>을 눌러 색을 바꿔요</li>' +
+      '<li><b>위치 고정</b>: 실수로 움직이지 않게 · <b>삭제</b>: 지우기</li></ul>' +
+      '<h3>도구 (배치 탭)</h3><ul>' +
+      '<li>벽 그리기·칸막이·방 만들기 등을 고르면 위에 안내가 떠요. 다 하면 <b>완료</b></li>' +
+      '<li><b>방 크기</b>: 방 밖 손잡이를 끌어 벽 옮기기 (방이 바뀌면 화면이 따라와요)</li></ul>' +
+      '<h3>1인칭</h3><ul>' +
+      '<li><b>왼쪽 원</b>을 누른 채 밀면 걷고, 끝까지 밀면 달려요</li>' +
+      '<li><b>화면을 끌면</b> 둘러봐요</li>' +
+      '<li><b>오른쪽 버튼</b>: 앞에 있는 문 열기·조명 켜기</li></ul>' +
+      '<h3>저장</h3><ul><li>앱 위쪽의 <b>저장</b> 버튼으로 내 방에 저장하고, <b>공유</b>로 커뮤니티에 올려요</li></ul>';
+    card.appendChild(th);
+    $('helpTitle').textContent = '조작법';
+  }
+
+  // ---------- loop ----------
+`);
+
 // 8) Bridge to the app
 rep(`  tick();\n})();`, `  // walls facing the camera become invisible but still cast shadows (so curtains/walls keep blocking sun)
   function updateHiddenWalls(forceOutside) {
