@@ -63,6 +63,7 @@ export default function BudgetScreen() {
   const total = sumForMonth(expenses, mKey);
   const income = sumForMonth(expenses, mKey, undefined, true);
   const balance = income - total;
+  const hasIncome = income > 0;
 
   const byDay = useMemo(() => {
     const map: Record<string, DayTotals> = {};
@@ -223,23 +224,25 @@ export default function BudgetScreen() {
       <Card tone="accent" style={styles.hero}>
         <Text style={[styles.heroLabel, { color: theme.onSurfaceAccent }]}>
           {otherYear ? `${year}년 ` : ''}
-          {month + 1}월 합계
+          {month + 1}월 {hasIncome ? '합계' : '지출'}
         </Text>
+        {/* Without income the balance is just "−spending", so lead with spending instead. */}
         <Text style={[styles.heroValue, { color: theme.onSurfaceAccent }]}>
-          {balance > 0 ? '+' : balance < 0 ? '−' : ''}
-          {formatWon(Math.abs(balance))}
+          {hasIncome ? `${balance > 0 ? '+' : balance < 0 ? '−' : ''}${formatWon(Math.abs(balance))}` : formatWon(total)}
         </Text>
-        <View style={styles.heroSplit}>
-          <View style={styles.heroCol}>
-            <Text style={[styles.heroColLabel, { color: theme.onSurfaceAccent }]}>수입</Text>
-            <Text style={[styles.heroColValue, { color: theme.onSurfaceAccent }]}>{formatWon(income)}</Text>
+        {hasIncome ? (
+          <View style={styles.heroSplit}>
+            <View style={styles.heroCol}>
+              <Text style={[styles.heroColLabel, { color: theme.onSurfaceAccent }]}>수입</Text>
+              <Text style={[styles.heroColValue, { color: theme.onSurfaceAccent }]}>{formatWon(income)}</Text>
+            </View>
+            <View style={[styles.heroDivider, { backgroundColor: theme.onSurfaceAccent }]} />
+            <View style={styles.heroCol}>
+              <Text style={[styles.heroColLabel, { color: theme.onSurfaceAccent }]}>지출</Text>
+              <Text style={[styles.heroColValue, { color: theme.onSurfaceAccent }]}>{formatWon(total)}</Text>
+            </View>
           </View>
-          <View style={[styles.heroDivider, { backgroundColor: theme.onSurfaceAccent }]} />
-          <View style={styles.heroCol}>
-            <Text style={[styles.heroColLabel, { color: theme.onSurfaceAccent }]}>지출</Text>
-            <Text style={[styles.heroColValue, { color: theme.onSurfaceAccent }]}>{formatWon(total)}</Text>
-          </View>
-        </View>
+        ) : null}
         {monthlyBudget ? (
           <Pressable onPress={() => setGoalOpen(true)} accessibilityRole="button" accessibilityLabel="예산 수정">
             <View style={styles.track}>
