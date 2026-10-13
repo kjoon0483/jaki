@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import {
   AttachedRoom,
@@ -9,6 +9,7 @@ import {
   POST_COLUMNS,
   PostRow,
 } from '@/lib/community';
+import { blockUser, fetchBlockedIds, reportContent } from '@/lib/safety';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-state';
 
@@ -27,7 +28,7 @@ export interface Post extends PostRow {
   comments: PostComment[];
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 30;
 
 /** Community feed state. Call `refresh()` to load (the screen does it whenever it comes into focus). */
 export function useCommunity() {
@@ -38,67 +39,104 @@ export function useCommunity() {
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Users I've blocked: their posts and comments are left out of the feed.
+  const blocked = useRef(new Set<string>());
+  // Whether the room columns (migration 003) are visible; decided by the first page.
+  const columns = useRef(POST_COLUMNS);
+
+  /** Loads one page of posts older than `before` (or the newest page), with comments, likes and names. */
+  const fetchPage = useCallback(
+    async (before?: string): Promise<{ posts: Post[]; full: boolean; error: string | null }> => {
+      const fetchPosts = (cols: string) => {
+        let query = supabase.from('community_posts').select(cols).order('created_at', { ascending: false }).limit(PAGE_SIZE);
+        if (before) query = query.lt('created_at', before);
+        return query;
+      };
+      let { data: rows, error: postsError } = await fetchPosts(columns.current);
+      // If the room-sharing migration (003) isn't visible yet, still show the posts, just without rooms.
+      if (postsError && isMissingRoomColumn(postsError.message)) {
+        columns.current = LEGACY_POST_COLUMNS;
+        ({ data: rows, error: postsError } = await fetchPosts(LEGACY_POST_COLUMNS));
+      }
+      if (postsError) return { posts: [], full: false, error: friendlyError(postsError.message) };
+      const allRows = ((rows ?? []) as unknown as PostRow[]).map((p) => ({ ...p, room: p.room ?? null, room_name: p.room_name ?? null }));
+      const full = allRows.length === PAGE_SIZE;
+      const postRows = allRows.filter((p) => !blocked.current.has(p.user_id));
+      const ids = postRows.map((p) => p.id);
+
+      const [commentsRes, likesRes] = ids.length
+        ? await Promise.all([
+            supabase
+              .from('community_comments')
+              .select('id, post_id, user_id, text, created_at')
+              .in('post_id', ids)
+              .order('created_at', { ascending: true }),
+            supabase.from('community_post_likes').select('post_id').eq('user_id', me!).in('post_id', ids),
+          ])
+        : [{ data: [], error: null }, { data: [], error: null }];
+      const loadError = commentsRes.error ?? likesRes.error;
+      if (loadError) return { posts: [], full: false, error: friendlyError(loadError.message) };
+      const commentRows = (commentsRes.data ?? []).filter((c) => !blocked.current.has(c.user_id));
+      const liked = new Set((likesRes.data ?? []).map((l) => l.post_id));
+
+      // Display names live in `profiles` (filled from the signup nickname).
+      const userIds = [...new Set([...postRows.map((p) => p.user_id), ...commentRows.map((c) => c.user_id)])];
+      const names: Record<string, string> = {};
+      if (userIds.length) {
+        const { data: profiles } = await supabase.from('profiles').select('id, display_name').in('id', userIds);
+        (profiles ?? []).forEach((p) => {
+          names[p.id] = p.display_name;
+        });
+      }
+      const nameOf = (id: string) => (id === me ? myName : names[id] || '익명');
+
+      return {
+        posts: postRows.map((p) => ({
+          ...p,
+          author: nameOf(p.user_id),
+          likedByMe: liked.has(p.id),
+          comments: commentRows.filter((c) => c.post_id === p.id).map((c) => ({ ...c, author: nameOf(c.user_id) })),
+        })),
+        full,
+        error: null,
+      };
+    },
+    [me, myName]
+  );
 
   const refresh = useCallback(async () => {
     if (!me) return;
     setLoading(true);
-    const fetchPosts = (columns: string) =>
-      supabase.from('community_posts').select(columns).order('created_at', { ascending: false }).limit(PAGE_SIZE);
-    let { data: rows, error: postsError } = await fetchPosts(POST_COLUMNS);
-    // If the room-sharing migration (003) isn't visible yet, still show the posts, just without rooms.
-    if (postsError && isMissingRoomColumn(postsError.message)) {
-      ({ data: rows, error: postsError } = await fetchPosts(LEGACY_POST_COLUMNS));
+    blocked.current = await fetchBlockedIds();
+    const page = await fetchPage();
+    if (page.error) setError(page.error);
+    else {
+      setError(null);
+      setPosts(page.posts);
+      setHasMore(page.full);
     }
-    if (postsError) {
-      setError(friendlyError(postsError.message));
-      setLoading(false);
-      return;
-    }
-    const postRows = ((rows ?? []) as unknown as PostRow[]).map((p) => ({ ...p, room: p.room ?? null, room_name: p.room_name ?? null }));
-    const ids = postRows.map((p) => p.id);
-
-    const [commentsRes, likesRes] = ids.length
-      ? await Promise.all([
-          supabase
-            .from('community_comments')
-            .select('id, post_id, user_id, text, created_at')
-            .in('post_id', ids)
-            .order('created_at', { ascending: true }),
-          supabase.from('community_post_likes').select('post_id').eq('user_id', me).in('post_id', ids),
-        ])
-      : [{ data: [], error: null }, { data: [], error: null }];
-    const loadError = commentsRes.error ?? likesRes.error;
-    if (loadError) {
-      setError(friendlyError(loadError.message));
-      setLoading(false);
-      return;
-    }
-    const commentRows = commentsRes.data ?? [];
-    const liked = new Set((likesRes.data ?? []).map((l) => l.post_id));
-
-    // Display names live in `profiles` (filled from the signup nickname).
-    const userIds = [...new Set([...postRows.map((p) => p.user_id), ...commentRows.map((c) => c.user_id)])];
-    const names: Record<string, string> = {};
-    if (userIds.length) {
-      const { data: profiles } = await supabase.from('profiles').select('id, display_name').in('id', userIds);
-      (profiles ?? []).forEach((p) => {
-        names[p.id] = p.display_name;
-      });
-    }
-    const nameOf = (id: string) => (id === me ? myName : names[id] || '익명');
-
-    setPosts(
-      postRows.map((p) => ({
-        ...p,
-        author: nameOf(p.user_id),
-        likedByMe: liked.has(p.id),
-        comments: commentRows.filter((c) => c.post_id === p.id).map((c) => ({ ...c, author: nameOf(c.user_id) })),
-      }))
-    );
-    setError(null);
     setLoading(false);
-  }, [me, myName]);
+  }, [me, fetchPage]);
+
+  const loadMore = useCallback(async () => {
+    const last = posts[posts.length - 1];
+    if (!me || !last || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const page = await fetchPage(last.created_at);
+    setLoadingMore(false);
+    if (page.error) {
+      setError(page.error);
+      return;
+    }
+    setPosts((prev) => {
+      const seen = new Set(prev.map((p) => p.id));
+      return [...prev, ...page.posts.filter((p) => !seen.has(p.id))];
+    });
+    setHasMore(page.full);
+  }, [me, posts, loadingMore, hasMore, fetchPage]);
 
   const createPost = useCallback(
     async (body: string, topic: string, room?: AttachedRoom | null) => {
@@ -167,5 +205,50 @@ export function useCommunity() {
     return { error: null };
   }, []);
 
-  return { me, posts, loading, error, refresh, createPost, deletePost, toggleLike, addComment, deleteComment };
+  /** Reports a post or comment and hides it from my feed right away. */
+  const report = useCallback(async (target: { post: Post } | { comment: PostComment }, reason: string) => {
+    const isPost = 'post' in target;
+    const { error: reportError } = await reportContent(
+      isPost ? { postId: target.post.id } : { commentId: target.comment.id },
+      reason
+    );
+    if (reportError) return { error: reportError };
+    setPosts((prev) =>
+      isPost
+        ? prev.filter((p) => p.id !== target.post.id)
+        : prev.map((p) =>
+            p.id === target.comment.post_id ? { ...p, comments: p.comments.filter((c) => c.id !== target.comment.id) } : p
+          )
+    );
+    return { error: null };
+  }, []);
+
+  /** Blocks a user and removes their posts and comments from the feed. */
+  const block = useCallback(async (userId: string) => {
+    const { error: blockError } = await blockUser(userId);
+    if (blockError) return { error: blockError };
+    blocked.current.add(userId);
+    setPosts((prev) =>
+      prev.filter((p) => p.user_id !== userId).map((p) => ({ ...p, comments: p.comments.filter((c) => c.user_id !== userId) }))
+    );
+    return { error: null };
+  }, []);
+
+  return {
+    me,
+    posts,
+    loading,
+    loadingMore,
+    hasMore,
+    error,
+    refresh,
+    loadMore,
+    createPost,
+    deletePost,
+    toggleLike,
+    addComment,
+    deleteComment,
+    report,
+    block,
+  };
 }

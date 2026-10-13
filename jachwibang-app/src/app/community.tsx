@@ -7,6 +7,7 @@ import { ComposeSheet } from '@/components/community/compose-sheet';
 import { RoomPreview } from '@/components/community/room-preview';
 import { RoomThumbMaker } from '@/components/community/room-thumbs';
 import { RoomViewer } from '@/components/community/room-viewer';
+import { SafetySheet } from '@/components/community/safety-sheet';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Spacing } from '@/constants/theme';
@@ -21,11 +22,29 @@ const FILTERS = ['전체', ...POST_TOPICS] as const;
 
 export default function CommunityScreen() {
   const theme = useTheme();
-  const { me, posts, loading, error, refresh, createPost, deletePost, toggleLike, addComment, deleteComment } =
-    useCommunity();
+  const {
+    me,
+    posts,
+    loading,
+    loadingMore,
+    hasMore,
+    error,
+    refresh,
+    loadMore,
+    createPost,
+    deletePost,
+    toggleLike,
+    addComment,
+    deleteComment,
+    report: reportContent,
+    block,
+  } = useCommunity();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('전체');
   const [composeOpen, setComposeOpen] = useState(false);
   const [viewing, setViewing] = useState<Post | null>(null);
+  // Someone else's post or comment whose report/block menu is open.
+  const [safety, setSafety] = useState<{ post: Post } | { comment: PostComment } | null>(null);
+  const safetyUser = safety ? ('post' in safety ? safety.post : safety.comment) : null;
 
   // Pick up posts shared from the 3D tab (or by others) whenever this tab comes into view.
   useFocusEffect(
@@ -108,6 +127,8 @@ export default function CommunityScreen() {
                 report(deletePost(post.id), '삭제하지 못했어요');
               }
             }}
+            onOpenSafety={() => setSafety({ post })}
+            onOpenCommentSafety={(c) => setSafety({ comment: c })}
             onAddComment={(text) => addComment(post.id, text)}
             onDeleteComment={async (c) => {
               if (await confirmAsync('댓글 삭제', '이 댓글을 삭제할까요?', '삭제')) {
@@ -117,6 +138,20 @@ export default function CommunityScreen() {
           />
         ))
       )}
+      {/* Older posts load in pages; filtering by topic works on what's loaded. */}
+      {!error && hasMore ? (
+        <Pressable
+          onPress={loadMore}
+          disabled={loadingMore}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.moreBtn, { backgroundColor: theme.backgroundElement }, pressed && { opacity: 0.7 }]}>
+          {loadingMore ? (
+            <ActivityIndicator color={theme.accent} />
+          ) : (
+            <Text style={[styles.moreText, { color: theme.text }]}>이전 글 더 보기</Text>
+          )}
+        </Pressable>
+      ) : null}
       {/* Keeps the last card clear of the floating button. */}
       <View style={{ height: 56 }} />
 
@@ -127,6 +162,12 @@ export default function CommunityScreen() {
         title={viewing ? `${viewing.author}님의 방` : ''}
         subtitle={viewing?.room_name}
         onClose={() => setViewing(null)}
+      />
+      <SafetySheet
+        target={safety ? { kind: 'post' in safety ? 'post' : 'comment', author: safetyUser!.author } : null}
+        onClose={() => setSafety(null)}
+        onReport={(reason) => reportContent(safety!, reason)}
+        onBlock={() => block(safetyUser!.user_id)}
       />
     </Screen>
   );
@@ -139,6 +180,8 @@ function PostCard({
   onToggleLike,
   onOpenRoom,
   onDelete,
+  onOpenSafety,
+  onOpenCommentSafety,
   onAddComment,
   onDeleteComment,
 }: {
@@ -148,6 +191,8 @@ function PostCard({
   onToggleLike: () => void;
   onOpenRoom: () => void;
   onDelete: () => void;
+  onOpenSafety: () => void;
+  onOpenCommentSafety: (c: PostComment) => void;
   onAddComment: (text: string) => Promise<{ error: string | null }>;
   onDeleteComment: (c: PostComment) => void;
 }) {
@@ -187,7 +232,11 @@ function PostCard({
           <Pressable onPress={onDelete} hitSlop={10} accessibilityLabel="글 삭제">
             <Ionicons name="trash-outline" size={16} color={theme.textSecondary} />
           </Pressable>
-        ) : null}
+        ) : (
+          <Pressable onPress={onOpenSafety} hitSlop={10} accessibilityLabel="신고·차단 메뉴">
+            <Ionicons name="ellipsis-horizontal" size={18} color={theme.textSecondary} />
+          </Pressable>
+        )}
       </View>
 
       <Text style={[styles.body, { color: theme.text }]}>{post.body}</Text>
@@ -249,7 +298,11 @@ function PostCard({
                   <Pressable onPress={() => onDeleteComment(c)} hitSlop={8} accessibilityLabel="댓글 삭제">
                     <Ionicons name="close" size={14} color={theme.textSecondary} />
                   </Pressable>
-                ) : null}
+                ) : (
+                  <Pressable onPress={() => onOpenCommentSafety(c)} hitSlop={8} accessibilityLabel="댓글 신고·차단 메뉴">
+                    <Ionicons name="ellipsis-horizontal" size={14} color={theme.textSecondary} />
+                  </Pressable>
+                )}
               </View>
             ))
           )}
@@ -324,6 +377,8 @@ const styles = StyleSheet.create({
   commentText: { flex: 1, fontSize: 13, lineHeight: 19 },
   commentInputRow: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.one },
   commentInput: { flex: 1, minWidth: 0, height: 40, borderRadius: 12, paddingHorizontal: 12, fontSize: 14 },
+  moreBtn: { alignItems: 'center', justifyContent: 'center', height: 46, borderRadius: 14 },
+  moreText: { fontSize: 14, fontWeight: '600' },
   sendBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   fab: {
     position: 'absolute',
