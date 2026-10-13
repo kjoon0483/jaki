@@ -1,5 +1,8 @@
 -- 006: account deletion, unique nicknames, community reports and blocks
 -- (safe to run many times)
+--
+-- If the SQL Editor reports "relation ... does not exist" for a table created below,
+-- run each numbered section as its own query (create the table first, then the rest).
 
 -- 1) Account deletion --------------------------------------------------------
 -- Deletes the signed-in user. Every app table references auth.users with
@@ -95,9 +98,17 @@ create table if not exists public.community_reports (
 
 alter table public.community_reports enable row level security;
 
-drop policy if exists "users file their own reports" on public.community_reports;
-create policy "users file their own reports" on public.community_reports
-  for insert with check (auth.uid() = reporter_id);
+do $
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'community_reports' and policyname = 'users file their own reports'
+  ) then
+    create policy "users file their own reports" on public.community_reports
+      for insert with check (auth.uid() = reporter_id);
+  end if;
+end;
+$;
 
 -- 4) Blocks -----------------------------------------------------------------
 -- A user's blocks are private to them; the app hides blocked users' posts and comments.
@@ -111,8 +122,16 @@ create table if not exists public.user_blocks (
 
 alter table public.user_blocks enable row level security;
 
-drop policy if exists "users manage their own blocks" on public.user_blocks;
-create policy "users manage their own blocks" on public.user_blocks
-  for all using (auth.uid() = blocker_id) with check (auth.uid() = blocker_id);
+do $
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'user_blocks' and policyname = 'users manage their own blocks'
+  ) then
+    create policy "users manage their own blocks" on public.user_blocks
+      for all using (auth.uid() = blocker_id) with check (auth.uid() = blocker_id);
+  end if;
+end;
+$;
 
 notify pgrst, 'reload schema';
