@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { DatePickerInline } from '@/components/budget/date-picker-inline';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { Spacing } from '@/constants/theme';
@@ -36,10 +37,12 @@ export function ExpenseSheet({
   const [memo, setMemo] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // Start fresh (or from the entry being edited) each time the sheet opens.
   useEffect(() => {
     if (!visible) return;
+    setPickerOpen(false);
     setIsIncome(editing?.is_income ?? false);
     setAmountText(editing ? formatAmountInput(String(editing.amount)) : '');
     setCategory(editing?.category ?? EXPENSE_CATEGORIES[0].key);
@@ -145,10 +148,18 @@ export function ExpenseSheet({
           <Pressable onPress={() => setDate((d) => addDays(d, -1))} hitSlop={8} accessibilityLabel="하루 전">
             <Ionicons name="chevron-back" size={18} color={theme.text} />
           </Pressable>
-          <Text style={[styles.dateText, { color: theme.text }]}>
-            {date.slice(0, 4) !== today.slice(0, 4) ? `${date.slice(0, 4)}년 ` : ''}
-            {formatDateLabel(date)}
-          </Text>
+          <Pressable
+            onPress={() => setPickerOpen((v) => !v)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="달력에서 날짜 고르기"
+            style={styles.dateLabel}>
+            <Text style={[styles.dateText, { color: theme.text }]}>
+              {date.slice(0, 4) !== today.slice(0, 4) ? `${date.slice(0, 4)}년 ` : ''}
+              {formatDateLabel(date)}
+            </Text>
+            <Ionicons name={pickerOpen ? 'caret-up' : 'calendar-outline'} size={14} color={theme.textSecondary} />
+          </Pressable>
           <Pressable
             onPress={() => setDate((d) => (d < today ? addDays(d, 1) : d))}
             hitSlop={8}
@@ -157,6 +168,16 @@ export function ExpenseSheet({
             <Ionicons name="chevron-forward" size={18} color={date >= today ? theme.border : theme.text} />
           </Pressable>
         </View>
+        {pickerOpen ? (
+          <DatePickerInline
+            key={date.slice(0, 7)}
+            value={date}
+            onChange={(key) => {
+              setDate(key);
+              setPickerOpen(false);
+            }}
+          />
+        ) : null}
       </View>
 
       <View style={styles.field}>
@@ -204,6 +225,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: 14,
   },
+  dateLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dateText: { fontSize: 15, fontWeight: '600' },
   input: { borderRadius: 14, paddingHorizontal: Spacing.three, paddingVertical: 14, fontSize: 15 },
   error: { fontSize: 13 },
