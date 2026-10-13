@@ -94,21 +94,25 @@ export function withGeneratedThumb(room: RoomData, key: string | undefined): Roo
   return room.thumb || !thumb ? room : { ...room, thumb };
 }
 
-/** First load of the 3D page (three.js from the CDN) can outlast one serialize timeout, so retry once. */
+/** A photo can still fail once on a slow phone (the timeout starts when the page is ready), so retry once. */
 const ATTEMPTS = 2;
 
 /**
- * Hidden simulator that works through the queue. Mount once on a screen that shows previews: the
- * 3D page starts loading right away (while posts are still being fetched) and then stays paused,
- * so it draws nothing until a photo is needed.
+ * Mount once on a screen that shows previews. The hidden simulator only exists while there are
+ * photos to take: the 3D page is heavy (city and river scenery), and keeping one alive next to the
+ * 3D tab's own page ran phones out of memory and reloaded the community tab.
  */
 export function RoomThumbMaker() {
+  useSyncExternalStore(subscribe, () => version);
+  return queue.length ? <ThumbWorker /> : null;
+}
+
+/** Hidden, paused simulator that works through the queue, one room at a time. */
+function ThumbWorker() {
   useSyncExternalStore(subscribe, () => version);
   const sim = useRef<RoomSimulatorHandle>(null);
   const busy = useRef(false);
   const job = queue[0];
-
-  useEffect(loadStored, []);
 
   useEffect(() => {
     if (!job || busy.current) return;

@@ -38,6 +38,8 @@ export function useSimBridge(send: (msg: OutMsg) => void, { readonly, initialSta
   const ready = useRef(false);
   const queue = useRef<OutMsg[]>([]);
   const pending = useRef(new Map<number, (s: RoomData) => void>());
+  // Run once the page is ready (e.g. start a reply timeout only after the heavy page has loaded).
+  const onReady = useRef<(() => void)[]>([]);
   const nextId = useRef(1);
   const init = useRef({ readonly, initialState, paused });
   init.current = { readonly, initialState, paused };
@@ -64,6 +66,7 @@ export function useSimBridge(send: (msg: OutMsg) => void, { readonly, initialSta
           state: init.current.initialState ?? null,
         });
         queue.current.splice(0).forEach(send);
+        onReady.current.splice(0).forEach((fn) => fn());
       } else if (m.type === 'state' && m.id !== undefined && m.state) {
         pending.current.get(m.id)?.(m.state);
         pending.current.delete(m.id);
@@ -80,9 +83,13 @@ export function useSimBridge(send: (msg: OutMsg) => void, { readonly, initialSta
           const id = nextId.current++;
           pending.current.set(id, resolve);
           post({ type: 'serialize', id, thumb: !!opts?.thumb });
-          setTimeout(() => {
-            if (pending.current.delete(id)) reject(new Error('3D 화면이 응답하지 않아요. 잠시 후 다시 시도해주세요.'));
-          }, 8000);
+          // Counted from when the page is ready, so a slow first load on a phone isn't a failure.
+          const startTimer = () =>
+            setTimeout(() => {
+              if (pending.current.delete(id)) reject(new Error('3D 화면이 응답하지 않아요. 잠시 후 다시 시도해주세요.'));
+            }, 8000);
+          if (ready.current) startTimer();
+          else onReady.current.push(startTimer);
         }),
       load: (state) => post({ type: 'load', state }),
       reset: () => {
