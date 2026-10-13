@@ -18,14 +18,12 @@ const ThemePreferenceContext = createContext<ThemePreferenceValue | null>(null);
 
 export function ThemePreferenceProvider({ children }: PropsWithChildren) {
   const system = useSystemColorScheme();
-  const [preference, setPreferenceState] = useState<ThemePreference>('system');
+  // Every launch starts in light mode; a choice made in 마이페이지 lasts until the app is restarted.
+  const [preference, setPreferenceState] = useState<ThemePreference>('light');
 
+  // Clears any choice saved by older versions, which restored dark mode on every launch.
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((saved) => {
-        if (saved === 'light' || saved === 'dark' || saved === 'system') setPreferenceState(saved);
-      })
-      .catch(() => {});
+    AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
   }, []);
 
   // On native, also override the app-level appearance so native UI (tab bar,
@@ -38,10 +36,7 @@ export function ThemePreferenceProvider({ children }: PropsWithChildren) {
   const value = useMemo<ThemePreferenceValue>(
     () => ({
       preference,
-      setPreference: (next) => {
-        setPreferenceState(next);
-        AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
-      },
+      setPreference: setPreferenceState,
       scheme: preference === 'system' ? (system === 'dark' ? 'dark' : 'light') : preference,
     }),
     [preference, system]

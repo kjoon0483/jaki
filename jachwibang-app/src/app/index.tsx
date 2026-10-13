@@ -58,24 +58,37 @@ export default function HomeScreen() {
 
   return (
     <Screen eyebrow={nickname ? `안녕하세요, ${nickname}님` : '안녕하세요'} title="오늘의 자취방">
-      {/* 이번 달 예산 요약 */}
+      {/* 이번 달 예산 요약. 요약(가계부로 이동)과 예산 정하기 버튼은 형제로 둔다: 웹에서 버튼 안에 버튼을 못 넣는다. */}
       <Card tone="accent" style={styles.hero}>
-        <Text style={[styles.heroLabel, { color: theme.onSurfaceAccent }]}>{now.getMonth() + 1}월 지출</Text>
-        <Text style={[styles.heroValue, { color: theme.onSurfaceAccent }]}>{formatWon(total)}</Text>
-        {monthlyBudget ? (
-          <>
-            <View style={styles.track}>
-              <View
-                style={[styles.fill, { width: `${usedRatio * 100}%`, backgroundColor: over ? theme.warm : theme.onSurfaceAccent }]}
-              />
-            </View>
-            <Text style={[styles.heroMeta, { color: theme.onSurfaceAccent }]}>
-              {over
-                ? `예산보다 ${formatWon(total - monthlyBudget)} 더 썼어요`
-                : `예산 ${formatWon(monthlyBudget)} 중 ${Math.round(usedRatio * 100)}% 사용 · ${formatWon(monthlyBudget - total)} 남음`}
-            </Text>
-          </>
-        ) : (
+        <Pressable
+          onPress={() => router.navigate('/budget')}
+          accessibilityRole="button"
+          accessibilityLabel="가계부로 가기"
+          style={({ pressed }) => [styles.heroLink, pressed && styles.pressed]}>
+          <View style={styles.heroTop}>
+            <Text style={[styles.heroLabel, { color: theme.onSurfaceAccent }]}>{now.getMonth() + 1}월 지출</Text>
+            <Ionicons name="chevron-forward" size={16} color={theme.onSurfaceAccent} style={styles.heroChevron} />
+          </View>
+          <Text style={[styles.heroValue, { color: theme.onSurfaceAccent }]}>{formatWon(total)}</Text>
+          {monthlyBudget ? (
+            <>
+              <View style={styles.track}>
+                <View
+                  style={[styles.fill, { width: `${usedRatio * 100}%`, backgroundColor: over ? theme.warm : theme.onSurfaceAccent }]}
+                />
+              </View>
+              <View style={styles.heroMetaRow}>
+                <Text style={[styles.heroMeta, { color: theme.onSurfaceAccent }]}>
+                  {over ? '예산 초과' : `예산의 ${Math.round(usedRatio * 100)}%`}
+                </Text>
+                <Text style={[styles.heroMeta, { color: theme.onSurfaceAccent }]}>
+                  {over ? `${formatWon(total - monthlyBudget)} 더 썼어요` : `${formatWon(monthlyBudget - total)} 남음`}
+                </Text>
+              </View>
+            </>
+          ) : null}
+        </Pressable>
+        {monthlyBudget ? null : (
           <Pressable onPress={() => setGoalOpen(true)} style={styles.pill} accessibilityRole="button">
             <Ionicons name="flag-outline" size={14} color={theme.onSurfaceAccent} />
             <Text style={[styles.pillText, { color: theme.onSurfaceAccent }]}>한 달 예산 정하기</Text>
@@ -85,10 +98,10 @@ export default function HomeScreen() {
 
       <View style={styles.statRow}>
         <Card style={styles.stat}>
-          <View style={[styles.iconBubble, { backgroundColor: theme.accentSoft }]}>
-            <Ionicons name="leaf-outline" size={16} color={theme.accent} />
+          <View style={styles.statHead}>
+            <Ionicons name="leaf-outline" size={14} color={theme.accent} />
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>지난달 이맘때보다</Text>
           </View>
-          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>지난달 이맘때보다</Text>
           {hasLastMonth ? (
             <>
               <Text style={[styles.statValue, { color: theme.text }]}>{formatWon(Math.abs(diff))}</Text>
@@ -108,10 +121,10 @@ export default function HomeScreen() {
           )}
         </Card>
         <Card style={styles.stat}>
-          <View style={[styles.iconBubble, { backgroundColor: theme.accentSoft }]}>
-            <Ionicons name={topCategory ? categoryIcon(topCategory.category) : 'pie-chart-outline'} size={16} color={theme.accent} />
+          <View style={styles.statHead}>
+            <Ionicons name={topCategory ? categoryIcon(topCategory.category) : 'pie-chart-outline'} size={14} color={theme.accent} />
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>가장 많이 쓴 곳</Text>
           </View>
-          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>가장 많이 쓴 곳</Text>
           {topCategory ? (
             <>
               <Text style={[styles.statValue, { color: theme.text }]}>{topCategory.category}</Text>
@@ -150,16 +163,10 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
           ) : (
-            recent.map((e, i) => (
-              <Pressable
-                key={e.id}
-                onPress={() => router.navigate('/budget')}
-                style={[
-                  styles.activityRow,
-                  i < recent.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
-                ]}>
-                <View style={[styles.iconBubble, { backgroundColor: theme.background }]}>
-                  <Ionicons name={categoryIcon(e.category)} size={15} color={theme.accent} />
+            recent.map((e) => (
+              <Pressable key={e.id} onPress={() => router.navigate('/budget')} style={styles.activityRow}>
+                <View style={[styles.iconBubble, { backgroundColor: e.is_income ? theme.background : theme.accentSoft }]}>
+                  <Ionicons name={categoryIcon(e.category)} size={15} color={e.is_income ? theme.income : theme.accent} />
                 </View>
                 <View style={styles.activityText}>
                   <Text style={[styles.activityTitle, { color: theme.text }]} numberOfLines={1}>
@@ -170,7 +177,7 @@ export default function HomeScreen() {
                     {e.memo ? ` · ${e.category}` : ''}
                   </Text>
                 </View>
-                <Text style={[styles.activityAmount, { color: e.is_income ? theme.income : theme.expense }]}>
+                <Text style={[styles.activityAmount, { color: e.is_income ? theme.income : theme.text }]}>
                   {e.is_income ? '+' : '−'}
                   {formatWon(e.amount)}
                 </Text>
@@ -188,10 +195,14 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   hero: { padding: Spacing.four, gap: Spacing.two },
+  heroLink: { gap: Spacing.two },
+  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroChevron: { opacity: 0.7 },
   heroLabel: { fontSize: 13, opacity: 0.85 },
   heroValue: { fontSize: 30, fontWeight: '800', letterSpacing: -0.5 },
-  track: { height: 8, borderRadius: 4, overflow: 'hidden', marginTop: Spacing.one, backgroundColor: 'rgba(255,255,255,0.2)' },
-  fill: { height: '100%', borderRadius: 4 },
+  track: { height: 6, borderRadius: 3, overflow: 'hidden', marginTop: Spacing.two, backgroundColor: 'rgba(255,255,255,0.2)' },
+  fill: { height: '100%', borderRadius: 3 },
+  heroMetaRow: { flexDirection: 'row', justifyContent: 'space-between' },
   heroMeta: { fontSize: 12, opacity: 0.9 },
   pill: {
     flexDirection: 'row',
@@ -206,10 +217,11 @@ const styles = StyleSheet.create({
   },
   pillText: { fontSize: 13, fontWeight: '700' },
   statRow: { flexDirection: 'row', gap: Spacing.three },
-  stat: { flex: 1 },
-  iconBubble: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  statLabel: { fontSize: 12, marginTop: Spacing.one },
-  statValue: { fontSize: 18, fontWeight: '700' },
+  stat: { flex: 1, gap: 6 },
+  statHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  iconBubble: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  statLabel: { fontSize: 12 },
+  statValue: { fontSize: 18, fontWeight: '700', marginTop: 2 },
   statEmpty: { fontSize: 13, lineHeight: 18 },
   trendRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   trendText: { fontSize: 12 },
@@ -220,10 +232,10 @@ const styles = StyleSheet.create({
   roomTitle: { fontSize: 15, fontWeight: '700' },
   roomSub: { fontSize: 12 },
   section: { gap: Spacing.three },
-  list: { paddingVertical: Spacing.one, gap: 0 },
+  list: { paddingVertical: Spacing.two, gap: 0 },
   empty: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.four },
   emptyText: { fontSize: 13, lineHeight: 19, textAlign: 'center' },
-  activityRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: 12 },
+  activityRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: 10 },
   activityText: { flex: 1, gap: 2 },
   activityTitle: { fontSize: 14, fontWeight: '600' },
   activitySub: { fontSize: 12 },

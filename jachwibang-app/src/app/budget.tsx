@@ -7,7 +7,7 @@ import { ExpenseSheet } from '@/components/budget/expense-sheet';
 import { MonthPickerSheet } from '@/components/budget/month-picker-sheet';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
-import { SectionHeader } from '@/components/ui/section-header';
+import { Segmented } from '@/components/ui/segmented';
 import { Spacing } from '@/constants/theme';
 import { categoryIcon } from '@/data/categories';
 import { useTheme } from '@/hooks/use-theme';
@@ -16,6 +16,13 @@ import { formatShortWon, formatWon } from '@/lib/format';
 import { Expense, sumForMonth, useBudget } from '@/state/budget-state';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+type BudgetView = 'calendar' | 'list' | 'stats';
+const VIEWS: { value: BudgetView; label: string }[] = [
+  { value: 'calendar', label: '달력' },
+  { value: 'list', label: '내역' },
+  { value: 'stats', label: '분석' },
+];
 
 interface DayTotals {
   income: number;
@@ -32,6 +39,7 @@ export default function BudgetScreen() {
   const [month, setMonth] = useState(now.getMonth()); // 0-based
   const mKey = monthKey(year, month);
   const isThisMonth = year === now.getFullYear() && month === now.getMonth();
+  const [view, setView] = useState<BudgetView>('calendar');
   const [pickedDay, setPickedDay] = useState<string | null>(todayKey);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
@@ -84,9 +92,11 @@ export default function BudgetScreen() {
   ];
 
   const selectedDay = pickedDay && pickedDay.startsWith(mKey) ? pickedDay : null;
+  // The calendar tab lists only the picked day; the list tab lists the whole month.
+  const listDay = view === 'calendar' ? selectedDay : null;
   // Entries are already sorted newest day first, so grouping keeps that order.
   const groups = useMemo(() => {
-    const list = selectedDay ? monthEntries.filter((e) => e.spent_on === selectedDay) : monthEntries;
+    const list = listDay ? monthEntries.filter((e) => e.spent_on === listDay) : monthEntries;
     const result: { day: string; items: Expense[] }[] = [];
     list.forEach((e) => {
       const last = result[result.length - 1];
@@ -94,7 +104,7 @@ export default function BudgetScreen() {
       else result.push({ day: e.spent_on, items: [e] });
     });
     return result;
-  }, [monthEntries, selectedDay]);
+  }, [monthEntries, listDay]);
 
   /** Jumps to any month up to the current one; `m` may overflow (-1, 12) and is normalized. */
   function goToMonth(y: number, m: number) {
@@ -114,6 +124,61 @@ export default function BudgetScreen() {
   function openEdit(e: Expense) {
     setEditing(e);
     setSheetOpen(true);
+  }
+
+  function renderGroup(g: { day: string; items: Expense[] }, gi: number) {
+    const day = byDay[g.day];
+    return (
+      <View key={g.day} style={gi > 0 && styles.groupGap}>
+        <View style={styles.dayHeader}>
+          <Text style={[styles.dayHeaderDate, { color: theme.textSecondary }]}>
+            {g.day === todayKey ? '오늘 · ' : ''}
+            {formatDateLabel(g.day)}
+          </Text>
+          <View style={styles.dayHeaderSums}>
+            {day?.income ? (
+              <Text style={[styles.dayHeaderSum, { color: theme.income }]}>+{formatWon(day.income)}</Text>
+            ) : null}
+            {day?.expense ? (
+              <Text style={[styles.dayHeaderSum, { color: theme.textSecondary }]}>−{formatWon(day.expense)}</Text>
+            ) : null}
+          </View>
+        </View>
+        {g.items.map((e) => (
+          <Pressable
+            key={e.id}
+            onPress={() => openEdit(e)}
+            accessibilityRole="button"
+            accessibilityLabel={`${e.memo || e.category} ${e.is_income ? '수입' : '지출'} ${formatWon(e.amount)}, 수정하기`}
+            style={({ pressed }) => [styles.itemRow, pressed && { opacity: 0.6 }]}>
+            <View style={[styles.iconBubble, { backgroundColor: e.is_income ? theme.background : theme.accentSoft }]}>
+              <Ionicons name={categoryIcon(e.category)} size={15} color={e.is_income ? theme.income : theme.accent} />
+            </View>
+            <View style={styles.itemText}>
+              <Text style={[styles.itemTitle, { color: theme.text }]} numberOfLines={1}>
+                {e.memo || e.category}
+              </Text>
+              {e.memo ? <Text style={[styles.itemSub, { color: theme.textSecondary }]}>{e.category}</Text> : null}
+            </View>
+            <Text style={[styles.itemAmount, { color: e.is_income ? theme.income : theme.text }]}>
+              {e.is_income ? '+' : '−'}
+              {formatWon(e.amount)}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    );
+  }
+
+  function renderEmpty(icon: keyof typeof Ionicons.glyphMap | null, message: string) {
+    return (
+      <Card>
+        <View style={styles.empty}>
+          {icon ? <Ionicons name={icon} size={22} color={theme.textSecondary} /> : null}
+          <Text style={[styles.muted, { color: theme.textSecondary, textAlign: 'center' }]}>{message}</Text>
+        </View>
+      </Card>
+    );
   }
 
   const usedRatio = monthlyBudget ? Math.min(1, total / monthlyBudget) : 0;
@@ -185,12 +250,14 @@ export default function BudgetScreen() {
                 ]}
               />
             </View>
-            <Text style={[styles.heroMeta, { color: theme.onSurfaceAccent }]}>
-              {over
-                ? `예산 ${formatWon(monthlyBudget)}보다 ${formatWon(total - monthlyBudget)} 더 썼어요`
-                : `예산 ${formatWon(monthlyBudget)} 중 ${formatWon(monthlyBudget - total)} 남았어요`}
-              {'  ·  수정'}
-            </Text>
+            <View style={styles.heroMetaRow}>
+              <Text style={[styles.heroMeta, { color: theme.onSurfaceAccent }]}>
+                {over
+                  ? `예산보다 ${formatWon(total - monthlyBudget)} 더 썼어요`
+                  : `예산 ${formatWon(monthlyBudget)} 중 ${formatWon(monthlyBudget - total)} 남았어요`}
+              </Text>
+              <Ionicons name="pencil" size={12} color={theme.onSurfaceAccent} style={styles.heroMetaIcon} />
+            </View>
           </Pressable>
         ) : (
           <Pressable onPress={() => setGoalOpen(true)} style={styles.setGoal} accessibilityRole="button">
@@ -212,140 +279,86 @@ export default function BudgetScreen() {
         <ActivityIndicator color={theme.accent} style={{ marginVertical: Spacing.four }} />
       ) : null}
 
-      {/* 달력 */}
-      <View style={styles.section}>
-        <SectionHeader title="날짜별 내역" action={selectedDay ? '이번 달 전체' : undefined} onAction={() => setPickedDay(null)} />
-        <Card style={styles.calCard}>
-          <View style={styles.weekRow}>
-            {WEEKDAYS.map((w, i) => (
-              <Text
-                key={w}
-                style={[styles.weekday, { color: i === 0 ? theme.expense : i === 6 ? theme.income : theme.textSecondary }]}>
-                {w}
-              </Text>
-            ))}
-          </View>
-          <View style={styles.calGrid}>
-            {cells.map((key, i) => {
-              if (!key) return <View key={`b${i}`} style={styles.calCell} />;
-              const day = byDay[key];
-              const isToday = key === todayKey;
-              const isPicked = key === selectedDay;
-              const future = key > todayKey;
-              const label = [
-                formatDateLabel(key),
-                day?.income ? `수입 ${formatWon(day.income)}` : '',
-                day?.expense ? `지출 ${formatWon(day.expense)}` : '',
-              ]
-                .filter(Boolean)
-                .join(', ');
-              return (
-                <View key={key} style={styles.calCell}>
-                  <Pressable
-                    onPress={() => setPickedDay(isPicked ? null : key)}
-                    disabled={future}
-                    accessibilityLabel={label}
-                    accessibilityState={{ selected: isPicked }}
-                    style={[
-                      styles.dayButton,
-                      isPicked && { backgroundColor: theme.accentSoft },
-                      isToday && { borderWidth: 1.5, borderColor: theme.accent },
-                    ]}>
-                    <Text
-                      style={[
-                        styles.dayText,
-                        { color: future ? theme.border : theme.text },
-                        (isToday || isPicked) && styles.dayTextStrong,
-                      ]}>
-                      {Number(key.slice(8))}
-                    </Text>
-                    {day?.income ? (
-                      <Text style={[styles.dayAmount, { color: theme.income }]} numberOfLines={1}>
-                        +{formatShortWon(day.income)}
-                      </Text>
-                    ) : null}
-                    {day?.expense ? (
-                      <Text style={[styles.dayAmount, { color: theme.expense }]} numberOfLines={1}>
-                        −{formatShortWon(day.expense)}
-                      </Text>
-                    ) : null}
-                  </Pressable>
-                </View>
-              );
-            })}
-          </View>
-        </Card>
-      </View>
+      <Segmented options={VIEWS} value={view} onChange={setView} />
 
-      {/* 내역: 날짜별로 묶어서 */}
-      <View style={styles.section}>
-        <SectionHeader title={selectedDay ? formatDateLabel(selectedDay) : `${month + 1}월 전체 내역`} />
-        {groups.length === 0 ? (
-          <Card>
-            <View style={styles.empty}>
-              <Ionicons name="receipt-outline" size={22} color={theme.textSecondary} />
-              <Text style={[styles.muted, { color: theme.textSecondary, textAlign: 'center' }]}>
-                {monthEntries.length === 0
-                  ? '아직 기록이 없어요.\n오른쪽 아래 + 버튼으로 수입·지출을 적어보세요.'
-                  : '이 날은 기록이 없어요.'}
-              </Text>
+      {view === 'calendar' && (
+        <>
+          <Card style={styles.calCard}>
+            <View style={styles.weekRow}>
+              {WEEKDAYS.map((w, i) => (
+                <Text
+                  key={w}
+                  style={[styles.weekday, { color: i === 0 ? theme.expense : i === 6 ? theme.income : theme.textSecondary }]}>
+                  {w}
+                </Text>
+              ))}
+            </View>
+            <View style={styles.calGrid}>
+              {cells.map((key, i) => {
+                if (!key) return <View key={`b${i}`} style={styles.calCell} />;
+                const day = byDay[key];
+                const isToday = key === todayKey;
+                const isPicked = key === selectedDay;
+                const future = key > todayKey;
+                const label = [
+                  formatDateLabel(key),
+                  day?.income ? `수입 ${formatWon(day.income)}` : '',
+                  day?.expense ? `지출 ${formatWon(day.expense)}` : '',
+                ]
+                  .filter(Boolean)
+                  .join(', ');
+                return (
+                  <View key={key} style={styles.calCell}>
+                    <Pressable
+                      onPress={() => setPickedDay(key)}
+                      disabled={future}
+                      accessibilityLabel={label}
+                      accessibilityState={{ selected: isPicked }}
+                      style={[styles.dayButton, isPicked && { backgroundColor: theme.accentSoft }]}>
+                      <View style={[styles.dayNum, isToday && { backgroundColor: theme.accent }]}>
+                        <Text
+                          style={[
+                            styles.dayText,
+                            { color: isToday ? theme.onAccent : future ? theme.border : theme.text },
+                            (isToday || isPicked) && styles.dayTextStrong,
+                          ]}>
+                          {Number(key.slice(8))}
+                        </Text>
+                      </View>
+                      {day?.income ? (
+                        <Text style={[styles.dayAmount, { color: theme.income }]} numberOfLines={1}>
+                          +{formatShortWon(day.income)}
+                        </Text>
+                      ) : null}
+                      {day?.expense ? (
+                        <Text style={[styles.dayAmount, { color: theme.expense }]} numberOfLines={1}>
+                          −{formatShortWon(day.expense)}
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                  </View>
+                );
+              })}
             </View>
           </Card>
-        ) : (
-          groups.map((g) => {
-            const day = byDay[g.day];
-            return (
-              <Card key={g.day} style={styles.list}>
-                <View style={[styles.dayHeader, { borderBottomColor: theme.border }]}>
-                  <Text style={[styles.dayHeaderDate, { color: theme.text }]}>
-                    {g.day === todayKey ? '오늘 · ' : ''}
-                    {formatDateLabel(g.day)}
-                  </Text>
-                  <View style={styles.dayHeaderSums}>
-                    {day?.income ? (
-                      <Text style={[styles.dayHeaderSum, { color: theme.income }]}>+{formatWon(day.income)}</Text>
-                    ) : null}
-                    {day?.expense ? (
-                      <Text style={[styles.dayHeaderSum, { color: theme.expense }]}>−{formatWon(day.expense)}</Text>
-                    ) : null}
-                  </View>
-                </View>
-                {g.items.map((e, i) => (
-                  <Pressable
-                    key={e.id}
-                    onPress={() => openEdit(e)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${e.memo || e.category} ${e.is_income ? '수입' : '지출'} ${formatWon(e.amount)}, 수정하기`}
-                    style={({ pressed }) => [
-                      styles.itemRow,
-                      i < g.items.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
-                      pressed && { opacity: 0.6 },
-                    ]}>
-                    <View style={[styles.iconBubble, { backgroundColor: theme.background }]}>
-                      <Ionicons name={categoryIcon(e.category)} size={15} color={e.is_income ? theme.income : theme.accent} />
-                    </View>
-                    <View style={styles.itemText}>
-                      <Text style={[styles.itemTitle, { color: theme.text }]} numberOfLines={1}>
-                        {e.memo || e.category}
-                      </Text>
-                      {e.memo ? <Text style={[styles.itemSub, { color: theme.textSecondary }]}>{e.category}</Text> : null}
-                    </View>
-                    <Text style={[styles.itemAmount, { color: e.is_income ? theme.income : theme.expense }]}>
-                      {e.is_income ? '+' : '−'}
-                      {formatWon(e.amount)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </Card>
-            );
-          })
-        )}
-      </View>
 
-      {/* 카테고리별 지출 */}
-      {byCategory.length > 0 && (
-        <View style={styles.section}>
-          <SectionHeader title="어디에 썼을까" />
+          {selectedDay
+            ? groups.length === 0
+              ? renderEmpty(null, `${formatDateLabel(selectedDay)}에는 기록이 없어요.`)
+              : <Card style={styles.list}>{groups.map(renderGroup)}</Card>
+            : renderEmpty(null, '날짜를 누르면 그날 내역을 보여드려요.')}
+        </>
+      )}
+
+      {view === 'list' &&
+        (groups.length === 0
+          ? renderEmpty('receipt-outline', '아직 기록이 없어요.\n오른쪽 아래 + 버튼으로 수입·지출을 적어보세요.')
+          : <Card style={styles.list}>{groups.map(renderGroup)}</Card>)}
+
+      {view === 'stats' &&
+        (byCategory.length === 0 ? (
+          renderEmpty('pie-chart-outline', `${month + 1}월 지출이 생기면 어디에 썼는지 보여드려요.`)
+        ) : (
           <Card style={styles.catCard}>
             {byCategory.map((row) => (
               <View key={row.category} style={styles.catRow}>
@@ -358,13 +371,14 @@ export default function BudgetScreen() {
                   <Text style={[styles.catAmount, { color: theme.text }]}>{formatWon(row.amount)}</Text>
                 </View>
                 <View style={[styles.barTrack, { backgroundColor: theme.backgroundSelected }]}>
-                  <View style={[styles.barFill, { width: `${(row.amount / byCategory[0].amount) * 100}%`, backgroundColor: theme.accent }]} />
+                  <View
+                    style={[styles.barFill, { width: `${(row.amount / byCategory[0].amount) * 100}%`, backgroundColor: theme.accent }]}
+                  />
                 </View>
               </View>
             ))}
           </Card>
-        </View>
-      )}
+        ))}
       {/* Keeps the last row clear of the floating + button. */}
       <View style={{ height: 56 }} />
 
@@ -398,9 +412,11 @@ const styles = StyleSheet.create({
   heroColLabel: { fontSize: 12, opacity: 0.8 },
   heroColValue: { fontSize: 16, fontWeight: '700' },
   heroDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', opacity: 0.4, marginHorizontal: Spacing.three },
-  track: { height: 8, borderRadius: 4, overflow: 'hidden', marginVertical: Spacing.two, backgroundColor: 'rgba(255,255,255,0.2)' },
-  fill: { height: '100%', borderRadius: 4 },
+  track: { height: 6, borderRadius: 3, overflow: 'hidden', marginTop: Spacing.three, marginBottom: Spacing.two, backgroundColor: 'rgba(255,255,255,0.2)' },
+  fill: { height: '100%', borderRadius: 3 },
+  heroMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   heroMeta: { fontSize: 12, opacity: 0.9 },
+  heroMetaIcon: { opacity: 0.7 },
   setGoal: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -416,8 +432,7 @@ const styles = StyleSheet.create({
   errorTitle: { fontSize: 14, fontWeight: '700' },
   muted: { fontSize: 13, lineHeight: 19 },
   link: { fontSize: 13, fontWeight: '700' },
-  section: { gap: Spacing.three },
-  catCard: { gap: Spacing.three },
+  catCard: { gap: Spacing.three, padding: Spacing.three },
   catRow: { gap: 6 },
   catHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   catName: { flex: 1, fontSize: 14, fontWeight: '600' },
@@ -425,33 +440,34 @@ const styles = StyleSheet.create({
   catAmount: { fontSize: 14, fontWeight: '700', minWidth: 84, textAlign: 'right' },
   barTrack: { height: 6, borderRadius: 3, overflow: 'hidden', marginLeft: 36 },
   barFill: { height: '100%', borderRadius: 3 },
-  iconBubble: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  calCard: { paddingHorizontal: Spacing.two },
-  weekRow: { flexDirection: 'row' },
+  iconBubble: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  calCard: { paddingHorizontal: Spacing.two, paddingTop: Spacing.three },
+  weekRow: { flexDirection: 'row', marginBottom: Spacing.one },
   weekday: { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '600' },
   calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   calCell: { width: `${100 / 7}%`, aspectRatio: 0.72, padding: 2 },
-  dayButton: { flex: 1, borderRadius: 10, alignItems: 'center', paddingTop: 6, gap: 1 },
-  dayText: { fontSize: 13, marginBottom: 2 },
+  dayButton: { flex: 1, borderRadius: 12, alignItems: 'center', paddingTop: 4, gap: 1 },
+  dayNum: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  dayText: { fontSize: 13 },
   dayTextStrong: { fontWeight: '800' },
   dayAmount: { fontSize: 9, fontWeight: '600' },
-  list: { paddingVertical: Spacing.one, gap: 0 },
+  list: { paddingVertical: Spacing.three, gap: 0 },
+  groupGap: { marginTop: Spacing.three },
   dayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: Spacing.one,
   },
-  dayHeaderDate: { fontSize: 13, fontWeight: '700' },
+  dayHeaderDate: { fontSize: 12, fontWeight: '600' },
   dayHeaderSums: { flexDirection: 'row', gap: Spacing.two },
-  dayHeaderSum: { fontSize: 13, fontWeight: '700' },
+  dayHeaderSum: { fontSize: 12, fontWeight: '600' },
   empty: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.four },
-  itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: 12 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: 10 },
   itemText: { flex: 1, gap: 2 },
-  itemTitle: { fontSize: 14, fontWeight: '600' },
+  itemTitle: { fontSize: 15, fontWeight: '600' },
   itemSub: { fontSize: 12 },
-  itemAmount: { fontSize: 14, fontWeight: '700' },
+  itemAmount: { fontSize: 15, fontWeight: '700' },
   fab: {
     position: 'absolute',
     right: Spacing.four,

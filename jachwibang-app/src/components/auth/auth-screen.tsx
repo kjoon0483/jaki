@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { MAX_NICKNAME_LEN, MIN_NICKNAME_LEN, MIN_PASSWORD_LEN, PASSWORD_SPECIAL_RE } from '@/lib/account-rules';
@@ -24,6 +24,8 @@ import { useAuth } from '@/state/auth-state';
 type AuthView = 'login' | 'signup' | 'signup-sent' | 'forgot-request' | 'forgot-sent';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Soft dark gray behind the logo in dark mode: a step lighter than the page so the house reads clearly. */
+const DARK_LOGO_TILE = '#3A3D3A';
 
 function friendlyError(message: string) {
   const m = message.toLowerCase();
@@ -175,10 +177,19 @@ export function AuthScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            {/* The logo art has a dark-green wordmark, so in dark mode it sits on a cream tile to stay legible. */}
-            <View style={[styles.logoTile, scheme === 'dark' && { backgroundColor: Colors.light.backgroundElement }]}>
-              <Image style={styles.logo} source={require('@/assets/images/splash-logo.png')} contentFit="contain" />
-            </View>
+            {/* The logo's dark-green wordmark disappears on a dark background, so dark mode shows only the
+                house (the wordmark is cropped off) on a soft dark-gray tile; the title below names the app. */}
+            {scheme === 'dark' ? (
+              <View style={[styles.logoTile, styles.logoTileDark, { backgroundColor: DARK_LOGO_TILE }]}>
+                <View style={styles.logoCrop}>
+                  <Image style={styles.logoLarge} source={require('@/assets/images/splash-logo.png')} contentFit="contain" />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.logoTile}>
+                <Image style={styles.logo} source={require('@/assets/images/splash-logo.png')} contentFit="contain" />
+              </View>
+            )}
             <Text style={[styles.title, { color: theme.text }]}>자취방 키우기</Text>
             <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{title}</Text>
           </View>
@@ -452,6 +463,10 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', gap: Spacing.one },
   logoTile: { borderRadius: 24, padding: 10, marginBottom: Spacing.two },
   logo: { width: 96, height: 84 },
+  logoTileDark: { paddingHorizontal: 18, paddingVertical: 14 },
+  // The house fills roughly the top 64% of the logo art; the rest is the wordmark.
+  logoCrop: { width: 120, height: 70, overflow: 'hidden' },
+  logoLarge: { width: 120, height: 106 },
   title: { fontSize: 22, fontWeight: '700' },
   subtitle: { fontSize: 12.5 },
   card: {
