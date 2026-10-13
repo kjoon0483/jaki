@@ -1,4 +1,5 @@
 import type { RoomData } from '@/components/room/sim-bridge';
+import { friendlyError } from '@/lib/errors';
 import { supabase } from '@/lib/supabase';
 
 export const POST_COLUMNS = 'id, user_id, body, topic, room, room_name, likes_count, created_at';
@@ -38,7 +39,7 @@ export function communityError(message: string) {
   if (/relation .* does not exist/i.test(message)) {
     return `커뮤니티 테이블이 없어요. Supabase SQL Editor에서 supabase/schema.sql 을 실행해주세요.\n(${message})`;
   }
-  return message;
+  return friendlyError(message);
 }
 
 /**

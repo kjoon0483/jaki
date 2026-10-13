@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { friendlyError } from '@/lib/errors';
 import { MAX_NICKNAME_LEN, nicknameProblem } from '@/lib/account-rules';
 import { useAuth } from '@/state/auth-state';
 
@@ -30,7 +31,7 @@ export function NicknameSheet({ visible, current, onClose }: { visible: boolean;
     setSaving(true);
     const { error: saveError } = await updateNickname(name);
     setSaving(false);
-    if (saveError) setError(`저장하지 못했어요: ${saveError}`);
+    if (saveError) setError(`저장하지 못했어요: ${friendlyError(saveError)}`);
     else onClose();
   }
 

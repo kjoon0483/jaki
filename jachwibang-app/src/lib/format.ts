@@ -2,9 +2,12 @@ export function formatWon(n: number) {
   return '₩' + Math.round(n).toLocaleString('ko-KR');
 }
 
+/** Longest amount accepted (999,999,999원); the DB column is a 32-bit integer (max about 21억). */
+const MAX_AMOUNT_DIGITS = 9;
+
 /** Keeps only digits from a text field ("12,000원" -> 12000). Returns 0 for empty input. */
 export function parseAmount(text: string) {
-  const digits = text.replace(/\D/g, '');
+  const digits = text.replace(/\D/g, '').slice(0, MAX_AMOUNT_DIGITS);
   return digits ? Number(digits) : 0;
 }
 

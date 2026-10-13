@@ -9,6 +9,7 @@ import { Spacing } from '@/constants/theme';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/data/categories';
 import { useTheme } from '@/hooks/use-theme';
 import { confirmAsync } from '@/lib/confirm';
+import { friendlyError } from '@/lib/errors';
 import { addDays, dateKey, formatDateLabel } from '@/lib/dates';
 import { formatAmountInput, formatWon, parseAmount } from '@/lib/format';
 import { Expense, useBudget } from '@/state/budget-state';
@@ -71,7 +72,7 @@ export function ExpenseSheet({
     const input = { category, amount, spent_on: date, memo, is_income: isIncome };
     const { error: saveError } = editing ? await updateExpense(editing.id, input) : await addExpense(input);
     setSaving(false);
-    if (saveError) setError(`저장하지 못했어요: ${saveError}`);
+    if (saveError) setError(`저장하지 못했어요: ${friendlyError(saveError)}`);
     else onClose();
   }
 
@@ -80,7 +81,7 @@ export function ExpenseSheet({
     const ok = await confirmAsync('내역 삭제', `${editing.category} ${formatWon(editing.amount)}을(를) 삭제할까요?`, '삭제');
     if (!ok) return;
     const { error: deleteError } = await deleteExpense(editing.id);
-    if (deleteError) setError(`삭제하지 못했어요: ${deleteError}`);
+    if (deleteError) setError(`삭제하지 못했어요: ${friendlyError(deleteError)}`);
     else onClose();
   }
 

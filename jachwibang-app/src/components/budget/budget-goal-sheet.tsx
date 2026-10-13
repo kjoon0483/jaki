@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { friendlyError } from '@/lib/errors';
 import { formatAmountInput, parseAmount } from '@/lib/format';
 import { useBudget } from '@/state/budget-state';
 
@@ -26,7 +27,7 @@ export function BudgetGoalSheet({ visible, onClose }: { visible: boolean; onClos
     setSaving(true);
     const { error: saveError } = await setMonthlyBudget(amount);
     setSaving(false);
-    if (saveError) setError(`저장하지 못했어요: ${saveError}`);
+    if (saveError) setError(`저장하지 못했어요: ${friendlyError(saveError)}`);
     else onClose();
   }
 

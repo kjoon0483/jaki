@@ -12,6 +12,7 @@ import { Spacing } from '@/constants/theme';
 import { categoryIcon } from '@/data/categories';
 import { useTheme } from '@/hooks/use-theme';
 import { dateKey, formatDateLabel, monthKey } from '@/lib/dates';
+import { friendlyError } from '@/lib/errors';
 import { formatShortWon, formatWon } from '@/lib/format';
 import { Expense, sumForMonth, useBudget } from '@/state/budget-state';
 
@@ -273,7 +274,7 @@ export default function BudgetScreen() {
       {error ? (
         <Card>
           <Text style={[styles.errorTitle, { color: theme.danger }]}>내역을 불러오지 못했어요</Text>
-          <Text style={[styles.muted, { color: theme.textSecondary }]}>{error}</Text>
+          <Text style={[styles.muted, { color: theme.textSecondary }]}>{friendlyError(error)}</Text>
           <Pressable onPress={refresh} hitSlop={8}>
             <Text style={[styles.link, { color: theme.accent }]}>다시 시도</Text>
           </Pressable>
