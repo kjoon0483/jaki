@@ -86,7 +86,7 @@ rep(`    if (walk) return;\n    if (e.key === 'r'`, `    if (walk || readonly) r
 // 5) Panel starts folded in the app; hide it while the furniture edit bar is up
 rep(`  if (window.innerWidth < 600) setCollapsed(true);\n`, `  if (EMBED || window.innerWidth < 600) setCollapsed(true);
   // 가구를 선택하면 아래 시트를 숨기고 편집 막대만 보여준다.
-  new MutationObserver(() => document.body.classList.toggle('has-sel', !$('selbar').hidden))
+  new MutationObserver(() => { document.body.classList.toggle('has-sel', !$('selbar').hidden); applyViewOffset(); })
     .observe($('selbar'), { attributes: true, attributeFilter: ['hidden'] });
 `);
 
@@ -117,6 +117,98 @@ rep(`    // walls facing the camera become invisible but still cast shadows (so 
       }
     });
 `, `    updateHiddenWalls();
+`);
+
+// 7b) Phone (touch) screens
+// 원본에서 .hud 를 닫는 </div> 가 빠져 있으면 도움말·1인칭 버튼·가구 편집 막대가 패널 묶음 안에 들어가,
+// 1인칭(패널 숨김)일 때 이동 버튼까지 같이 사라진다. 여닫는 수가 안 맞을 때만 채운다.
+{
+  const body = s.slice(s.indexOf('<body>'), s.indexOf('<script'));
+  const missing = (body.match(/<div\b/g) || []).length - (body.match(/<\/div>/g) || []).length;
+  if (missing > 0) rep('\n<button class="helpBtn"', '\n' + '</div>'.repeat(missing) + '\n<button class="helpBtn"');
+}
+rep(`</style>`, `
+  /* ---------- 터치 화면(휴대폰): 누르기 쉬운 크기 ---------- */
+  body.touch button, body.touch select { min-height: 36px; }
+  body.touch .tabs button { min-height: 42px; }
+  body.touch input[type="range"] { height: 28px; }
+  body.touch .selbar .card { max-height: 46vh; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
+  /* ---------- 터치 화면 1인칭: 왼쪽 조이스틱으로 걷고, 화면을 끌어 둘러보고, 오른쪽 버튼으로 문·조명 ---------- */
+  body.touch .walkPad, body.touch .walkPrompt, body.touch.walking .helpBtn { display: none !important; }
+  .joy, .useBtn { display: none; }
+  body.touch.walking .joy, body.touch.walking .useBtn { display: block; }
+  .joy {
+    position: fixed; left: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); z-index: 20;
+    width: 132px; height: 132px; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none;
+    background: rgba(20,26,22,0.28); border: 2px solid rgba(255,255,255,0.6);
+  }
+  .joy .knob {
+    position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%;
+    background: rgba(255,255,255,0.92); box-shadow: 0 2px 8px rgba(0,0,0,0.25); pointer-events: none;
+  }
+  .useBtn {
+    position: fixed; right: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 50px); z-index: 20;
+    min-width: 84px; height: 64px; padding: 0 16px; border-radius: 32px; touch-action: none;
+    background: var(--panel); border: 1px solid var(--line); font-weight: 600; font-size: 14px;
+  }
+  .useBtn:disabled { opacity: 0.45; }
+  body.touch .walkHelp { padding: 6px 8px 6px 12px; gap: 8px; }
+  body.touch .walkHelp span { display: none; }
+  body.touch .walkHelp strong { white-space: normal; font-weight: 600; }
+  body.touch .walkHelp strong::after { content: ' · 왼쪽 원으로 걷고 화면을 끌어 둘러봐요'; font-weight: 400; color: var(--muted); }
+</style>`);
+// 휴대폰에서는 손가락으로 끄는 거리가 짧아서 고개 돌리는 감도를 높인다.
+rep(`    yaw -= dx * 0.0022; pitch -= dy * 0.0022;`, `    const ls = document.body.classList.contains('touch') ? 0.005 : 0.0022;
+    yaw -= dx * ls; pitch -= dy * ls;`);
+// 앱 안에서는 아래쪽 패널·편집 막대·보기 버튼이 가리는 만큼 방을 위로 올려, 보이는 곳 가운데에 둔다.
+rep(`    camera.clearViewOffset();   // the panel floats over the view; opening or closing it never moves the picture
+    camera.updateProjectionMatrix();`, `    camera.clearViewOffset();
+    const bar = !EMBED || walk ? null : readonly ? $('viewBar') : document.body.classList.contains('has-sel') ? $('selbar') : document.querySelector('.hud');
+    const r = bar ? bar.getBoundingClientRect() : null;
+    const cover = r && r.height > 0 ? Math.max(0, Hh - r.top) : 0;
+    if (cover > 0) camera.setViewOffset(W, Hh, 0, Math.round(cover / 2), W, Hh);
+    camera.updateProjectionMatrix();`);
+rep(`  // ---------- loop ----------\n`, `  // ---------- 터치 화면(휴대폰): 1인칭 조이스틱과 문·조명 버튼 ----------
+  const TOUCH = navigator.maxTouchPoints > 0 || 'ontouchstart' in window || window.matchMedia('(pointer: coarse)').matches;
+  document.body.classList.toggle('touch', TOUCH);
+  const joy = document.createElement('div'); joy.className = 'joy'; joy.id = 'joy';
+  joy.setAttribute('role', 'application'); joy.setAttribute('aria-label', '이동 조이스틱: 누른 채로 가고 싶은 쪽으로 미세요');
+  const knob = document.createElement('div'); knob.className = 'knob'; joy.appendChild(knob);
+  const useBtn = document.createElement('button'); useBtn.className = 'useBtn'; useBtn.textContent = '사용';
+  $('walkHud').append(joy, useBtn);
+  let joyId = null;
+  // 원 안에서 민 방향을 W·A·S·D 로 바꾼다. 가장자리까지 밀면 달리기.
+  function setJoy(dx, dy) {
+    const max = joy.offsetWidth / 2 - 10 || 56, len = Math.hypot(dx, dy), k = len > max ? max / len : 1;
+    dx *= k; dy *= k;
+    knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+    const nx = dx / max, ny = dy / max;
+    keys.KeyW = ny < -0.35; keys.KeyS = ny > 0.35; keys.KeyA = nx < -0.35; keys.KeyD = nx > 0.35;
+    keys.ShiftLeft = Math.hypot(nx, ny) > 0.92;
+  }
+  function joyPoint(e) { const r = joy.getBoundingClientRect(); setJoy(e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2); }
+  joy.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); e.stopPropagation(); joyId = e.pointerId;
+    try { joy.setPointerCapture(e.pointerId); } catch (err) {}
+    joyPoint(e);
+  });
+  joy.addEventListener('pointermove', function (e) { if (e.pointerId === joyId) { e.preventDefault(); joyPoint(e); } });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (ev) {
+    joy.addEventListener(ev, function (e) { if (e.pointerId === joyId) { joyId = null; setJoy(0, 0); } });
+  });
+  useBtn.addEventListener('click', useTarget);
+  // 바라보는 곳에 문·조명이 있으면 버튼 글자를 바꾸고, 없으면 흐리게.
+  (function syncUse() {
+    if (walk && TOUCH) {
+      const label = ($('walkPrompt').textContent || '').replace(/^E · /, '');
+      if (useBtn.textContent !== (label || '사용')) useBtn.textContent = label || '사용';
+      useBtn.disabled = !label;
+    } else if (joyId !== null) { joyId = null; setJoy(0, 0); }
+    requestAnimationFrame(syncUse);
+  })();
+
+  // ---------- loop ----------
 `);
 
 // 8) Bridge to the app
