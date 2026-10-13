@@ -168,3 +168,8 @@ create policy "users add their own comments" on public.community_comments
   for insert with check (auth.uid() = user_id);
 create policy "users delete their own comments" on public.community_comments
   for delete using (auth.uid() = user_id);
+
+-- Authors may write only the content columns of a post; likes_count is kept by the like trigger (see migrations/005).
+revoke insert, update on public.community_posts from anon, authenticated;
+grant insert (user_id, body, topic, placed, room, room_name) on public.community_posts to authenticated;
+grant update (body, topic, placed, room, room_name) on public.community_posts to authenticated;
