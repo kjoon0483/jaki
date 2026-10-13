@@ -42,19 +42,6 @@ create table if not exists public.expenses (
 
 create index if not exists expenses_user_id_spent_on_idx on public.expenses (user_id, spent_on);
 
--- room_furniture: 내 3D 배치 (한 유저당 여러 가구 row)
-create table if not exists public.room_furniture (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users (id) on delete cascade,
-  type text not null check (type in ('sofa', 'bed', 'armchair', 'table')),
-  x real not null,
-  y real not null,
-  rotation integer not null default 0,
-  created_at timestamptz not null default now()
-);
-
-create index if not exists room_furniture_user_id_idx on public.room_furniture (user_id);
-
 -- rooms: 내가 저장한 3D 방 (본인만 접근)
 create table if not exists public.rooms (
   id uuid primary key default gen_random_uuid(),
@@ -128,7 +115,6 @@ create index if not exists community_comments_post_id_idx on public.community_co
 -- community feed, which is readable by anyone signed in.
 alter table public.profiles enable row level security;
 alter table public.expenses enable row level security;
-alter table public.room_furniture enable row level security;
 alter table public.community_posts enable row level security;
 alter table public.community_post_likes enable row level security;
 alter table public.community_comments enable row level security;
@@ -140,9 +126,6 @@ create policy "users manage their own profile" on public.profiles
   for update using (auth.uid() = id);
 
 create policy "users manage their own expenses" on public.expenses
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
-create policy "users manage their own room furniture" on public.room_furniture
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "posts are readable by everyone" on public.community_posts
