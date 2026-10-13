@@ -67,6 +67,14 @@ npm run build:simulator
 
 `src/generated/oneroom-html.ts`는 자동 생성 파일이라 직접 고치지 않습니다.
 
+팀에서 시뮬레이터 **새 버전(혼자 열리는 HTML 파일)**을 받았다면, 아래 한 줄로 앱 연결 부분(저장·불러오기, 커뮤니티 보기 전용, 미리보기 사진, 앱 색상, 휴대폰용 패널)을 붙여서 교체할 수 있어요.
+
+```bash
+npm run embed:simulator -- "../새 시뮬레이터.html"
+```
+
+새 버전에서 고칠 자리를 못 찾으면 어디인지 알려주고 멈춥니다. 예전 시뮬레이터로 저장한 방도 새 화면에서 열려요.
+
 ## 웹 배포 (Vercel)
 
 `vercel.json`에 설정이 들어 있습니다. Vercel 프로젝트의 Environment Variables에 `.env`와 같은 두 값을 넣으면 `npx expo export -p web` 결과(`dist`)가 배포됩니다.

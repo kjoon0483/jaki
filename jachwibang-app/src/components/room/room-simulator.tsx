@@ -41,7 +41,8 @@ export function RoomSimulator(props: RoomSimulatorProps) {
         style={[styles.web, { backgroundColor: theme.background }]}
         originWhitelist={['*']}
         source={{ html: ONEROOM_HTML, baseUrl: 'https://localhost/' }}
-        injectedJavaScriptBeforeContentLoaded={setThemeScript(initialScheme)}
+        // __ONEROOM_EMBED tells the page it runs inside the app (no browser auto-save; the app saves rooms).
+        injectedJavaScriptBeforeContentLoaded={'window.__ONEROOM_EMBED = true;' + setThemeScript(initialScheme)}
         onMessage={(e) => {
           try {
             onMessage(JSON.parse(e.nativeEvent.data));

@@ -6,7 +6,8 @@ import type { RoomData } from '@/components/room/sim-bridge';
 import { useTheme } from '@/hooks/use-theme';
 
 type Bounds = { xMin: number; xMax: number; zMin: number; zMax: number };
-type PlanItem = { x: number; z: number; w: number; d: number; a?: number; t?: string; c?: string[] };
+// Rooms saved by the old simulator use R / t / c; the current one uses room / k / colors / finish.wall.
+type PlanItem = { x: number; z: number; w: number; d?: number; a?: number; t?: string; k?: string; c?: string[]; colors?: string[] };
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
@@ -51,7 +52,7 @@ export function RoomPreview({
 function FloorPlan({ room }: { room: RoomData }) {
   const theme = useTheme();
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
-  const R = room.R as Bounds | undefined;
+  const R = (room.room ?? room.R) as Bounds | undefined;
   const items = (Array.isArray(room.items) ? room.items : []) as PlanItem[];
   const rw = R ? R.xMax - R.xMin : 0;
   const rd = R ? R.zMax - R.zMin : 0;
@@ -62,16 +63,18 @@ function FloorPlan({ room }: { room: RoomData }) {
     const scale = Math.min((box.w * 0.86) / rw, (box.h * 0.86) / rd);
     plan = { w: rw * scale, h: rd * scale };
   }
-  const floor = typeof room.wall === 'string' && HEX.test(room.wall) ? room.wall : theme.background;
+  const wallHex = (room.finish as { wall?: unknown } | undefined)?.wall ?? room.wall;
+  const floor = typeof wallHex === 'string' && HEX.test(wallHex) ? wallHex : theme.background;
 
   return (
     <View style={styles.center} onLayout={(e) => setBox({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
       {plan && R ? (
         <View style={[styles.plan, { width: plan.w, height: plan.h, backgroundColor: floor, borderColor: theme.text }]}>
           {items.map((it, i) => {
-            if (![it.x, it.z, it.w, it.d].every(Number.isFinite)) return null;
-            const isWall = it.t === 'wall';
-            const color = isWall ? theme.text : it.c?.find((c) => HEX.test(c)) ?? theme.accent;
+            const isWall = it.t === 'wall' || it.k === 'wall';
+            const d = it.d ?? (isWall ? 0.1 : NaN);
+            if (![it.x, it.z, it.w, d].every(Number.isFinite)) return null;
+            const color = isWall ? theme.text : (it.colors ?? it.c)?.find((c) => HEX.test(c)) ?? theme.accent;
             return (
               <View
                 key={i}
@@ -79,9 +82,9 @@ function FloorPlan({ room }: { room: RoomData }) {
                   styles.item,
                   {
                     left: `${((it.x - it.w / 2 - R.xMin) / rw) * 100}%`,
-                    top: `${((it.z - it.d / 2 - R.zMin) / rd) * 100}%`,
+                    top: `${((it.z - d / 2 - R.zMin) / rd) * 100}%`,
                     width: `${(it.w / rw) * 100}%`,
-                    height: `${(it.d / rd) * 100}%`,
+                    height: `${(d / rd) * 100}%`,
                     backgroundColor: color,
                     opacity: isWall ? 0.85 : 0.75,
                     borderColor: theme.text,

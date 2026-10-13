@@ -39,7 +39,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "build:simulator": "node ./scripts/build-simulator.js"
+    "build:simulator": "node ./scripts/build-simulator.js",
+    "embed:simulator": "node ./scripts/embed-simulator.js"
   },
   "private": true
 }

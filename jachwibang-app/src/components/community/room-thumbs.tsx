@@ -17,7 +17,8 @@ const listeners = new Set<() => void>();
 let version = 0;
 
 // v2: photos went from 400x500 to 640x800, so older (blurrier) cached ones are retaken.
-const STORAGE_KEY = 'room-thumbs:v2';
+// v3: photos from the current simulator (river/city scenery); older cached ones are dropped.
+const STORAGE_KEY = 'room-thumbs:v3';
 /** ~40KB each, so this stays well under the browser's localStorage quota (~5MB). */
 const MAX_STORED = 40;
 let storage: 'idle' | 'loading' | 'ready' = 'idle';
