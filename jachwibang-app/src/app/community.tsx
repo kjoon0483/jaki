@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ComposeSheet } from '@/components/community/compose-sheet';
@@ -14,6 +14,7 @@ import { Spacing } from '@/constants/theme';
 import { POST_TOPICS } from '@/data/topics';
 import { Post, PostComment, useCommunity } from '@/hooks/use-community';
 import { useTheme } from '@/hooks/use-theme';
+import { fetchIsAdmin } from '@/lib/admin';
 import { savePostRoomThumb } from '@/lib/community';
 import { confirmAsync, notify } from '@/lib/confirm';
 import { timeAgo } from '@/lib/dates';
@@ -39,6 +40,16 @@ export default function CommunityScreen() {
     report: reportContent,
     block,
   } = useCommunity();
+  // The administrator also gets a delete button on other people's posts and comments (checked on the server).
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    if (me) fetchIsAdmin().then((ok) => alive && setIsAdmin(ok));
+    return () => {
+      alive = false;
+      setIsAdmin(false);
+    };
+  }, [me]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('전체');
   const [composeOpen, setComposeOpen] = useState(false);
   const [viewing, setViewing] = useState<Post | null>(null);
@@ -123,6 +134,7 @@ export default function CommunityScreen() {
             post={post}
             mine={post.user_id === me}
             me={me}
+            admin={isAdmin}
             onToggleLike={() => report(toggleLike(post), '좋아요를 반영하지 못했어요')}
             onOpenRoom={() => setViewing(post)}
             onDelete={async () => {
@@ -180,6 +192,7 @@ function PostCard({
   post,
   mine,
   me,
+  admin,
   onToggleLike,
   onOpenRoom,
   onDelete,
@@ -191,6 +204,7 @@ function PostCard({
   post: Post;
   mine: boolean;
   me: string | null;
+  admin: boolean;
   onToggleLike: () => void;
   onOpenRoom: () => void;
   onDelete: () => void;
@@ -236,9 +250,16 @@ function PostCard({
             <Ionicons name="trash-outline" size={16} color={theme.textSecondary} />
           </Pressable>
         ) : (
-          <Pressable onPress={onOpenSafety} hitSlop={10} accessibilityLabel="신고·차단 메뉴">
-            <Ionicons name="ellipsis-horizontal" size={18} color={theme.textSecondary} />
-          </Pressable>
+          <>
+            {admin ? (
+              <Pressable onPress={onDelete} hitSlop={10} accessibilityLabel="관리자 글 삭제">
+                <Ionicons name="trash-outline" size={16} color={theme.danger} />
+              </Pressable>
+            ) : null}
+            <Pressable onPress={onOpenSafety} hitSlop={10} accessibilityLabel="신고·차단 메뉴">
+              <Ionicons name="ellipsis-horizontal" size={18} color={theme.textSecondary} />
+            </Pressable>
+          </>
         )}
       </View>
 
@@ -302,9 +323,16 @@ function PostCard({
                     <Ionicons name="close" size={14} color={theme.textSecondary} />
                   </Pressable>
                 ) : (
-                  <Pressable onPress={() => onOpenCommentSafety(c)} hitSlop={8} accessibilityLabel="댓글 신고·차단 메뉴">
-                    <Ionicons name="ellipsis-horizontal" size={14} color={theme.textSecondary} />
-                  </Pressable>
+                  <>
+                    {admin ? (
+                      <Pressable onPress={() => onDeleteComment(c)} hitSlop={8} accessibilityLabel="관리자 댓글 삭제">
+                        <Ionicons name="close" size={14} color={theme.danger} />
+                      </Pressable>
+                    ) : null}
+                    <Pressable onPress={() => onOpenCommentSafety(c)} hitSlop={8} accessibilityLabel="댓글 신고·차단 메뉴">
+                      <Ionicons name="ellipsis-horizontal" size={14} color={theme.textSecondary} />
+                    </Pressable>
+                  </>
                 )}
               </View>
             ))
