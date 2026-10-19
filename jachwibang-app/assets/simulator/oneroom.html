@@ -5094,13 +5094,16 @@
         if (f && f.isDoor) return { kind: 'door', g: g };
         if (o.userData.bathDoor) return { kind: 'door', g: g };
         if (g.userData.lightObj) return { kind: 'lamp', g: g };
+        const ex = extraTarget(g, h); if (ex) return ex;
       }
       return null;   // something else is in front
     }
     return null;
   }
   function useTarget() {
+    if (pose) { standUp(); return; }
     const t = aimTarget(); if (!t) return;
+    if (useExtra(t)) return;
     if (t.kind === 'entrance') { entranceOpen = !entranceOpen; buildRoom(); applyEnv(); }
     else if (t.kind === 'door') { t.g.userData.open = !t.g.userData.open; rebuildItem(t.g); }
     else if (t.kind === 'lamp') { t.g.userData.on = !t.g.userData.on; applyLamp(t.g); }
@@ -5108,9 +5111,11 @@
   function walkPrompt() {
     const t = aimTarget();
     let txt = '';
-    if (t && t.kind === 'entrance') txt = 'E · 현관문 ' + (entranceOpen ? '닫기' : '열기');
+    if (pose) txt = 'E · 일어나기';
+    else if (t && t.kind === 'entrance') txt = 'E · 현관문 ' + (entranceOpen ? '닫기' : '열기');
     else if (t && t.kind === 'door') txt = 'E · 문 ' + (t.g.userData.open ? '닫기' : '열기');
     else if (t && t.kind === 'lamp') txt = 'E · ' + t.g.userData.name + ' ' + (t.g.userData.on ? '끄기' : '켜기');
+    else if (t && EXTRA_TXT[t.kind]) txt = 'E · ' + EXTRA_TXT[t.kind](t);
     if ($('walkPrompt').textContent !== txt) $('walkPrompt').textContent = txt;
   }
   function enterWalk() {
@@ -5132,6 +5137,7 @@
   }
   function exitWalk() {
     if (!walk) return;
+    pose = null; pitch = 0; stopAllWater();
     walk = false; Object.keys(keys).forEach((k) => { keys[k] = false; });
     if (document.pointerLockElement) document.exitPointerLock();
     document.body.classList.remove('walking'); $('walkHud').hidden = true;
@@ -5143,6 +5149,7 @@
     buildRoom(); applyEnv(); canvas.style.cursor = 'default';
   }
   function walkStep(dt) {
+    if (pose) { poseStep(dt); return; }
     const run = keys.ShiftLeft || keys.ShiftRight;
     let f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
     let r = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
@@ -5499,6 +5506,157 @@
     canvas.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 8) stop(); });
     ['pointerup', 'pointercancel'].forEach((ev) => canvas.addEventListener(ev, stop));
   })();
+
+  // ---------- 1인칭: 앉기·눕기, 물 틀기, 냉장고·장롱 열기 ----------
+  // 가구마다 '앞쪽'(fz), 앉았을 때 눈 위치(x·z·높이)를 정해 둔다. 좌표는 가구 기준.
+  const SEAT = {
+    chair:   { x: 0, z: -0.04, y: 1.10, fz: -1 },
+    gaming:  { x: 0, z: -0.04, y: 1.16, fz: -1 },
+    sofa:    { x: 0.34, z: 0.1, y: 1.03, fz: 1, byHit: true },
+    beanbag: { x: 0, z: 0, y: 0.95, fz: -1 },
+    toilet:  { x: 0, z: 0.1, y: 1.07, fz: 1 }
+  };
+  const BED = { bedSS: 1, bedQ: 1 };
+  const CAB = { fridge: 1, wardrobe: 1 };
+  // 수도꼭지: 물이 나오는 자리(x, z), 위·아래 높이, 눌러지는 높이 범위
+  const TAP = {
+    kitchen: { x: -0.52, z: -0.1, top: 1.12, bottom: 0.87, lo: 0.8, hi: 1.3 },
+    sink:    { x: 0, z: -0.06, top: 1.04, bottom: 0.9, lo: 0.7, hi: 1.3 }
+  };
+  const EXTRA_TXT = {
+    sit: () => '앉기', lie: () => '눕기',
+    cab: (t) => t.g.userData.name + (t.g.userData.cab ? ' 닫기' : ' 열기'),
+    tap: (t) => '물 ' + (waterOn(t.g) ? '잠그기' : '틀기')
+  };
+  function extraTarget(g, h) {
+    const k = g.userData.key;
+    if (SEAT[k]) return { kind: 'sit', g: g, point: h.point.clone() };
+    if (BED[k]) return { kind: 'lie', g: g };
+    if (CAB[k]) return { kind: 'cab', g: g };
+    if (TAP[k]) { const y = g.worldToLocal(h.point.clone()).y; if (y > TAP[k].lo && y < TAP[k].hi) return { kind: 'tap', g: g }; }
+    return null;
+  }
+  function useExtra(t) {
+    if (t.kind === 'sit' || t.kind === 'lie') { startPose(t); return true; }
+    if (t.kind === 'cab') { t.g.userData.cab = !t.g.userData.cab; rebuildItem(t.g); return true; }
+    if (t.kind === 'tap') { toggleWater(t.g); return true; }
+    return false;
+  }
+
+  // 앉기·눕기: 걷는 자리(WP)는 그대로 두고 카메라만 가구 위로 옮긴다. 일어나면 원래 서 있던 자리로 돌아온다.
+  let pose = null;
+  function startPose(t) {
+    const g = t.g, k = g.userData.key; let eye, fz, p;
+    g.updateMatrixWorld(true);
+    if (t.kind === 'lie') { eye = new THREE.Vector3(0, 0.72, -0.68); fz = 1; p = 1.0; }
+    else {
+      const c = SEAT[k]; let x = c.x;
+      if (c.byHit) x = g.worldToLocal(t.point.clone()).x < 0 ? -c.x : c.x;
+      eye = new THREE.Vector3(x, c.y, c.z); fz = c.fz; p = -0.04;
+    }
+    const pos = g.localToWorld(eye.clone());
+    pos.y = Math.min(pos.y, H - 0.12);
+    const fw = g.localToWorld(new THREE.Vector3(0, 0, fz)).sub(g.localToWorld(new THREE.Vector3(0, 0, 0)));
+    pose = { pos: pos, cur: camera.position.clone(), yaw: Math.atan2(-fw.x, -fw.z), pitch: p, t: 0 };
+    Object.keys(keys).forEach((kk) => { keys[kk] = false; });
+  }
+  function standUp() { pose = null; pitch = 0; }
+  const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+  function poseStep(dt) {
+    pose.t += dt;
+    if (pose.t > 0.4 && (keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD || keys.ArrowUp || keys.ArrowDown || keys.ArrowLeft || keys.ArrowRight)) { standUp(); return; }
+    if (pose.t < 0.5) { const q = 1 - Math.exp(-8 * dt); yaw += angDiff(pose.yaw, yaw) * q; pitch += (pose.pitch - pitch) * q; }
+    pose.cur.lerp(pose.pos, 1 - Math.exp(-9 * dt));
+    camera.position.copy(pose.cur);
+    camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    walkPrompt();
+  }
+
+  // 물 나오기: 가는 물줄기 + 바닥에서 튀는 물방울. 1인칭에서 나가면 잠근다.
+  const waters = []; let waterRun = false;
+  const waterAlive = (w) => w.parent && w.parent.children.indexOf(w) >= 0 && movables.indexOf(w.userData.owner) >= 0;
+  function waterOn(g) { return !!(g.userData.water && waterAlive(g.userData.water)); }
+  function dropWater(w) {
+    if (w.parent) { const i = w.parent.children.indexOf(w); if (i >= 0) w.parent.children.splice(i, 1); w.parent = null; }
+    disposeTree(w); const i = waters.indexOf(w); if (i >= 0) waters.splice(i, 1);
+  }
+  function stopAllWater() { waters.slice().forEach((w) => { const o = w.userData.owner; dropWater(w); if (o) o.userData.water = null; }); }
+  function toggleWater(g) {
+    const u = g.userData, c = TAP[u.key];
+    if (waterOn(g)) { dropWater(u.water); u.water = null; return; }
+    const w = new THREE.Group(); w.userData.owner = g; w.userData.c = c;
+    const len = c.top - c.bottom;
+    const stream = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.0075, len, 8),
+      new THREE.MeshBasicMaterial({ color: 0xBFE3FA, transparent: true, opacity: 0.6, depthWrite: false }));
+    stream.position.set(c.x, c.bottom + len / 2, c.z); w.add(stream);
+    const N = 16, pg = new THREE.BufferGeometry();
+    pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+    const pts = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xE6F6FF, size: 0.013, transparent: true, opacity: 0.9, depthWrite: false }));
+    pts.frustumCulled = false; w.add(pts);
+    w.userData.stream = stream; w.userData.pts = pts;
+    u.inner.add(w); u.water = w; waters.push(w);
+    if (!waterRun) { waterRun = true; requestAnimationFrame(waterTick); }
+  }
+  function waterTick(ts) {
+    waters.slice().forEach(function (w) { if (!waterAlive(w)) dropWater(w); });
+    if (!waters.length) { waterRun = false; return; }
+    const t = ts / 1000;
+    waters.forEach(function (w) {
+      const c = w.userData.c, st = w.userData.stream, a = w.userData.pts.geometry.attributes.position;
+      const f = 1 + 0.18 * Math.sin(t * 38); st.scale.set(f, 1, f);
+      for (let i = 0; i < a.count; i++) {
+        const ph = (t * 2.4 + i * 0.137) % 1, ang = i * 2.399;
+        a.setXYZ(i, c.x + Math.cos(ang) * (0.008 + ph * 0.05), c.bottom + 0.075 * Math.sin(Math.PI * ph), c.z + Math.sin(ang) * (0.008 + ph * 0.05));
+      }
+      a.needsUpdate = true;
+    });
+    requestAnimationFrame(waterTick);
+  }
+
+  // 냉장고·장롱: 속이 빈 상자 + 경첩에 달린 문. 열면 안쪽 선반과 물건이 보인다.
+  function hollow(g, W, H, z1, z2, t, m) {
+    seg(g, -W / 2, W / 2, z1, z1 + t, 0, H, m);
+    seg(g, -W / 2, -W / 2 + t, z1 + t, z2, 0, H, m);
+    seg(g, W / 2 - t, W / 2, z1 + t, z2, 0, H, m);
+    seg(g, -W / 2 + t, W / 2 - t, z1 + t, z2, H - t, H, m);
+    seg(g, -W / 2 + t, W / 2 - t, z1 + t, z2, 0, t, m);
+  }
+  FURN.fridge.build = function (g, w, d, u) {
+    const open = !!(u && u.cab), W = 0.68, H = 1.55, D = 0.65, t = 0.03, ang = 1.75;
+    hollow(g, W, H, -D / 2, D / 2 - t, t, M.fridge);
+    seg(g, -W / 2 + t, W / 2 - t, -D / 2 + t, D / 2 - t, 0.995, 1.005, M.porcelain);
+    [0.36, 0.7].forEach((y) => seg(g, -W / 2 + t, W / 2 - t, -D / 2 + t, D / 2 - t - 0.02, y, y + 0.012, M.porcelain));
+    seg(g, -W / 2 + t, W / 2 - t, -D / 2 + t, D / 2 - t - 0.02, 1.27, 1.282, M.porcelain);
+    [[-0.2, 0.372, 0, 0.2], [0.0, 0.372, 1, 0.2], [0.2, 0.372, 2, 0.2], [-0.12, 0.712, 3, 0.16], [0.14, 0.712, 0, 0.16], [-0.15, 0.03, 1, 0.22], [0.1, 0.03, 2, 0.22]].forEach(function (q) {
+      cyl(g, 0.035, 0.035, q[3], M.bottles[q[2]], q[0], q[1], -0.05);
+    });
+    seg(g, -W / 2, W / 2, D / 2 - t, D / 2 - 0.001, 0.995, 1.005, M.base);
+    [[0, 0.995, 0.6, 0.95], [1.005, 1.55, 1.08, 1.4]].forEach(function (q) {
+      const h = new THREE.Group(); h.position.set(W / 2, q[0], D / 2); h.rotation.y = open ? ang : 0; g.add(h);
+      seg(h, -W, 0, -t, 0, 0, q[1] - q[0], M.fridge);
+      seg(h, -0.58, -0.55, 0, 0.02, q[2] - q[0], q[3] - q[0], M.handle);
+    });
+  };
+  FURN.wardrobe.build = function (g, w, d, u) {
+    const open = !!(u && u.cab), W = 1.2, H = 2.0, D = 0.6, t = 0.03, ang = 1.75;
+    hollow(g, W, H, -D / 2, D / 2 - 0.02, t, M.white);
+    seg(g, -W / 2 + t, W / 2 - t, D / 2 - 0.06, D / 2 - 0.02, 0, 0.05, M.base);
+    seg(g, -W / 2 + t, W / 2 - t, -D / 2 + t, D / 2 - 0.03, 1.82, 1.834, M.white);
+    seg(g, -W / 2 + t, W / 2 - t, -D / 2 + t, D / 2 - 0.03, 0.42, 0.434, M.white);
+    seg(g, -W / 2 + t, W / 2 - t, -0.1, -0.085, 1.72, 1.735, M.steel);
+    for (let i = 0; i < 9; i++) {
+      const x = -0.46 + i * 0.115, hh = 0.7 + (i % 3) * 0.12;
+      box(g, 0.035, hh, 0.38, M.cloth[i % 6], x, 1.72 - hh, -0.09);
+    }
+    [[-0.3, 0], [0.05, 1], [0.35, 2]].forEach((q) => box(g, 0.3, 0.1, 0.34, M.cloth[(q[1] + 3) % 6], q[0], 0.434, -0.06));
+    [[-0.3, 0], [0.2, 3]].forEach((q) => box(g, 0.34, 0.12, 0.36, M.cloth[q[1]], q[0], 0.05, -0.05));
+    [[-1, -ang, 0.55], [1, ang, -0.55]].forEach(function (q) {
+      const h = new THREE.Group(); h.position.set(q[0] * W / 2, 0.04, D / 2 - 0.02); h.rotation.y = open ? q[1] : 0; g.add(h);
+      if (q[0] < 0) seg(h, 0, W / 2, 0, 0.02, 0, 1.94, M.white); else seg(h, -W / 2, 0, 0, 0.02, 0, 1.94, M.white);
+      seg(h, q[2] - 0.01, q[2] + 0.01, 0.02, 0.04, 0.86, 1.16, M.handle);
+    });
+  };
+  movables.forEach(function (g) { if (g.userData.key === 'fridge' || g.userData.key === 'wardrobe') rebuildItem(g); });
 
   // 1인칭 시작 자리: 방 가운데에서 가까운 순서로, 가구·벽·잘린 모서리에서 떨어진 빈 곳.
   function walkSpawnInside() {
