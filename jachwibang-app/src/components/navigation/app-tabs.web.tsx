@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs, TabList, TabTrigger, TabSlot, TabTriggerSlotProps } from 'expo-router/ui';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -15,12 +16,19 @@ const TAB_ITEMS = [
 
 export default function AppTabs() {
   const theme = useTheme();
+  // 3D 1인칭으로 걷는 동안(room-simulator.web.tsx 가 알려 준다)에는 아래 탭을 숨겨 화면 전체를 쓴다.
+  const [walking, setWalking] = useState(() => typeof document !== 'undefined' && document.body.dataset.walking === '1');
+  useEffect(() => {
+    const update = () => setWalking(document.body.dataset.walking === '1');
+    window.addEventListener('oneroom-walk', update);
+    return () => window.removeEventListener('oneroom-walk', update);
+  }, []);
   return (
     <View style={[styles.page, { backgroundColor: theme.backgroundElement }]}>
       <View style={[styles.phone, { backgroundColor: theme.background, borderColor: theme.border }]}>
         <Tabs style={styles.tabsRoot}>
           <TabSlot style={styles.slot} />
-          <TabList style={[styles.tabList, { borderColor: theme.border, backgroundColor: theme.background }]}>
+          <TabList style={[styles.tabList, { borderColor: theme.border, backgroundColor: theme.background }, walking && styles.hidden]}>
             {TAB_ITEMS.map((item) => (
               <TabTrigger key={item.name} name={item.name} href={item.href} asChild>
                 <TabButton label={item.label} icon={item.icon} />
@@ -65,6 +73,9 @@ const styles = StyleSheet.create({
   },
   tabsRoot: {
     flex: 1,
+  },
+  hidden: {
+    display: 'none',
   },
   slot: {
     flex: 1,

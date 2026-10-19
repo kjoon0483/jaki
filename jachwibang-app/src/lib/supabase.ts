@@ -14,17 +14,56 @@ if (!isSupabaseConfigured) {
   );
 }
 
-// 개발 서버(localhost)를 웹에서 열 때는 로그인을 탭이 열려 있는 동안만 기억한다(새로고침은 유지).
-// 서버를 껐다 켜고 새 탭으로 열면 로그인 화면부터 나와서, 가입·로그인 흐름을 매번 확인할 수 있다.
-// 배포된 주소(Vercel)와 휴대폰 앱은 예전처럼 오래 유지된다.
-const authStorage =
-  Platform.OS === 'web' && __DEV__ && typeof window !== 'undefined' && window.sessionStorage
-    ? {
-        getItem: (k: string) => Promise.resolve(window.sessionStorage.getItem(k)),
-        setItem: (k: string, v: string) => Promise.resolve(window.sessionStorage.setItem(k, v)),
-        removeItem: (k: string) => Promise.resolve(window.sessionStorage.removeItem(k)),
-      }
-    : AsyncStorage;
+// 웹(브라우저)에서는 로그인 화면의 '로그인 상태 유지'를 켠 경우에만 로그인을 오래 기억한다(localStorage).
+// 끄면(기본) 탭이 열려 있는 동안만 기억해서(새로고침은 유지), 새 탭·다시 열기 때는 로그인 화면부터 나온다.
+// 휴대폰 앱(네이티브)은 예전처럼 오래 유지된다.
+const KEEP_KEY = 'jaki.keepLogin';
+const hasWebStorage = Platform.OS === 'web' && typeof window !== 'undefined' && !!window.sessionStorage && !!window.localStorage;
+
+export function getKeepLogin() {
+  try {
+    return hasWebStorage && window.localStorage.getItem(KEEP_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setKeepLogin(on: boolean) {
+  try {
+    if (!hasWebStorage) return;
+    if (on) window.localStorage.setItem(KEEP_KEY, '1');
+    else window.localStorage.removeItem(KEEP_KEY);
+  } catch {
+    // 저장소를 못 쓰면 그냥 탭 안에서만 기억한다
+  }
+}
+
+const authStorage = hasWebStorage
+  ? {
+      getItem: (k: string) => {
+        const tab = window.sessionStorage.getItem(k);
+        if (tab !== null) return Promise.resolve(tab);
+        if (getKeepLogin()) return Promise.resolve(window.localStorage.getItem(k));
+        window.localStorage.removeItem(k); // 예전에 오래 저장된 로그인이 남아 있으면 지운다
+        return Promise.resolve(null);
+      },
+      setItem: (k: string, v: string) => {
+        if (getKeepLogin()) {
+          window.localStorage.setItem(k, v);
+          window.sessionStorage.removeItem(k);
+        } else {
+          window.sessionStorage.setItem(k, v);
+          window.localStorage.removeItem(k);
+        }
+        return Promise.resolve();
+      },
+      removeItem: (k: string) => {
+        window.sessionStorage.removeItem(k);
+        window.localStorage.removeItem(k);
+        return Promise.resolve();
+      },
+    }
+  : AsyncStorage;
 
 // createClient throws on an empty/invalid URL, so fall back to a placeholder
 // that keeps the app bootable (auth calls will simply fail) until .env is set.

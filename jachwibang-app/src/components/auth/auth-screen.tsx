@@ -21,7 +21,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { MAX_NICKNAME_LEN, MIN_NICKNAME_LEN, MIN_PASSWORD_LEN, PASSWORD_SPECIAL_RE } from '@/lib/account-rules';
 import { isNicknameAvailable } from '@/lib/safety';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { getKeepLogin, isSupabaseConfigured, setKeepLogin } from '@/lib/supabase';
 import { NICKNAME_TAKEN, useAuth } from '@/state/auth-state';
 
 type AuthView = 'login' | 'signup' | 'signup-sent' | 'forgot-request' | 'forgot-sent';
@@ -53,6 +53,8 @@ export function AuthScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // 웹에서만 보인다. 켜면 브라우저를 닫았다 다시 열어도 로그인이 유지된다.
+  const [keepLogin, setKeepLoginState] = useState(() => getKeepLogin());
 
   type FieldErrors = { email?: string; nickname?: string; password?: string; confirm?: string; terms?: string };
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -129,6 +131,7 @@ export function AuthScreen() {
         setFieldErrors({ nickname: NICKNAME_TAKEN });
         return;
       }
+      if (!isSignup) setKeepLogin(keepLogin);
       const result = isSignup
         ? await signUp(email.trim(), password, nickname.trim())
         : await signIn(email.trim(), password);
@@ -355,6 +358,13 @@ export function AuthScreen() {
                     </Text>
                   ) : null}
                 </View>
+
+                {view === 'login' && Platform.OS === 'web' && (
+                  <Pressable style={styles.termsRow} onPress={() => setKeepLoginState((v) => !v)} hitSlop={4} accessibilityRole="checkbox" accessibilityState={{ checked: keepLogin }}>
+                    <Ionicons name={keepLogin ? 'checkbox' : 'square-outline'} size={18} color={keepLogin ? theme.accent : theme.textSecondary} />
+                    <Text style={[styles.termsText, { color: theme.text }]}>로그인 상태 유지</Text>
+                  </Pressable>
+                )}
 
                 {view === 'login' && (
                   <Pressable onPress={() => goTo('forgot-request')} hitSlop={6} style={styles.forgotLink}>
