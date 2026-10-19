@@ -302,6 +302,29 @@
   }
   .walkTools button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
+  /* ---------- 1인칭: 오른쪽 시선 조이스틱 (왼쪽 이동 조이스틱과 한 쌍) ---------- */
+  .joyR { display: none; }
+  body.touch.walking .joyR { display: block; }
+  .joyR {
+    position: fixed; right: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); z-index: 20;
+    width: 132px; height: 132px; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none;
+    background: rgba(14,28,38,0.28); border: 2px solid rgba(255,255,255,0.6);
+  }
+  .joyR .knob {
+    position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%;
+    background: rgba(255,255,255,0.92); box-shadow: 0 2px 8px rgba(0,0,0,0.25); pointer-events: none;
+  }
+  /* 세로 화면: [사용] 버튼은 오른쪽 조이스틱 바로 위 */
+  body.touch .useBtn { bottom: calc(env(safe-area-inset-bottom, 0px) + 168px); }
+  /* 가로 화면: 조이스틱을 조금 줄이고 [사용] 버튼은 오른쪽 조이스틱 왼쪽 */
+  @media (orientation: landscape) and (max-height: 520px) {
+    .joy, .joyR { width: 112px; height: 112px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
+    .joy { left: calc(env(safe-area-inset-left, 0px) + 22px); }
+    .joyR { right: calc(env(safe-area-inset-right, 0px) + 22px); }
+    body.touch .useBtn { right: calc(env(safe-area-inset-right, 0px) + 150px); bottom: calc(env(safe-area-inset-bottom, 0px) + 36px); }
+  }
+  body.touch .walkHelp strong::after { content: ' · 왼쪽 원으로 걷고, 오른쪽 원이나 화면 끌기로 둘러봐요'; font-weight: 400; color: var(--muted); }
+
   /* ---------- 터치 화면: 가구 편집 막대를 짧게 (투명도 빼고, 색상은 버튼으로 펼치기) ---------- */
   body.touch .selop { display: none !important; }
   body.touch .selbar:not(.colors-open) #colorRow { display: none; }
@@ -5657,6 +5680,41 @@
     });
   };
   movables.forEach(function (g) { if (g.userData.key === 'fridge' || g.userData.key === 'wardrobe') rebuildItem(g); });
+
+  // ---------- 1인칭 오른쪽 시선 조이스틱 ----------
+  const joyR = document.createElement('div'); joyR.className = 'joyR'; joyR.id = 'joyR';
+  joyR.setAttribute('role', 'application'); joyR.setAttribute('aria-label', '시선 조이스틱: 누른 채로 보고 싶은 쪽으로 미세요');
+  const knobR = document.createElement('div'); knobR.className = 'knob'; joyR.appendChild(knobR);
+  $('walkHud').appendChild(joyR);
+  let joyRId = null, lookX = 0, lookY = 0;
+  // 가운데 조금은 무시(떨림 방지), 많이 밀수록 빠르게 돈다.
+  function setLook(dx, dy) {
+    const max = joyR.offsetWidth / 2 - 10 > 0 ? joyR.offsetWidth / 2 - 10 : 56, len = Math.hypot(dx, dy), k = len > max ? max / len : 1;
+    dx *= k; dy *= k;
+    knobR.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+    const dz = 0.1, sh = (v) => Math.abs(v) < dz ? 0 : Math.sign(v) * (Math.abs(v) - dz) / (1 - dz);
+    const nx = sh(dx / max), ny = sh(dy / max);
+    lookX = nx * Math.abs(nx); lookY = ny * Math.abs(ny);
+  }
+  function joyRPoint(e) { const r = joyR.getBoundingClientRect(); setLook(e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2); }
+  joyR.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); e.stopPropagation(); joyRId = e.pointerId;
+    try { joyR.setPointerCapture(e.pointerId); } catch (err) {}
+    joyRPoint(e);
+  });
+  joyR.addEventListener('pointermove', function (e) { if (e.pointerId === joyRId) { e.preventDefault(); joyRPoint(e); } });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (ev) {
+    joyR.addEventListener(ev, function (e) { if (e.pointerId === joyRId) { joyRId = null; setLook(0, 0); } });
+  });
+  let lookT = 0;
+  (function lookTick(t) {
+    const dt = Math.min(0.05, (t - lookT) / 1000); lookT = t;
+    if (walk && (lookX || lookY)) {
+      yaw -= lookX * 2.4 * dt;
+      pitch = Math.max(-1.45, Math.min(1.45, pitch - lookY * 1.6 * dt));
+    } else if (!walk && joyRId !== null) { joyRId = null; setLook(0, 0); }
+    requestAnimationFrame(lookTick);
+  })(0);
 
   // 1인칭 시작 자리: 방 가운데에서 가까운 순서로, 가구·벽·잘린 모서리에서 떨어진 빈 곳.
   function walkSpawnInside() {
