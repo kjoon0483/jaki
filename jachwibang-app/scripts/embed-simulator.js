@@ -692,87 +692,28 @@ rep(`  // ---------- loop ----------\n`, `  // ---------- 1인칭: 앉기·눕�
   // ---------- loop ----------
 `);
 
-// 7h) Touch first person like a game controller: left stick walks, right stick looks (also usable sideways)
-rep(`</style>`, `
-  /* ---------- 1인칭: 오른쪽 시선 조이스틱 (왼쪽 이동 조이스틱과 한 쌍) ---------- */
-  .joyR { display: none; }
-  body.touch.walking .joyR { display: block; }
-  .joyR {
-    position: fixed; right: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); z-index: 20;
-    width: 132px; height: 132px; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none;
-    background: rgba(14,28,38,0.28); border: 2px solid rgba(255,255,255,0.6);
-  }
-  .joyR .knob {
-    position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%;
-    background: rgba(255,255,255,0.92); box-shadow: 0 2px 8px rgba(0,0,0,0.25); pointer-events: none;
-  }
-  /* 세로 화면: [사용] 버튼은 오른쪽 조이스틱 바로 위 */
-  body.touch .useBtn { bottom: calc(env(safe-area-inset-bottom, 0px) + 168px); }
-  /* 가로 화면: 조이스틱을 조금 줄이고 [사용] 버튼은 오른쪽 조이스틱 왼쪽 */
-  @media (orientation: landscape) and (max-height: 520px) {
-    .joy, .joyR { width: 112px; height: 112px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
-    .joy { left: calc(env(safe-area-inset-left, 0px) + 22px); }
-    .joyR { right: calc(env(safe-area-inset-right, 0px) + 22px); }
-    body.touch .useBtn { right: calc(env(safe-area-inset-right, 0px) + 150px); bottom: calc(env(safe-area-inset-bottom, 0px) + 36px); }
-  }
-  body.touch .walkHelp strong::after { content: ' · 왼쪽 원으로 걷고, 오른쪽 원이나 화면 끌기로 둘러봐요'; font-weight: 400; color: var(--muted); }
-</style>`);
-rep(`  // ---------- loop ----------\n`, `  // ---------- 1인칭 오른쪽 시선 조이스틱 ----------
-  const joyR = document.createElement('div'); joyR.className = 'joyR'; joyR.id = 'joyR';
-  joyR.setAttribute('role', 'application'); joyR.setAttribute('aria-label', '시선 조이스틱: 누른 채로 보고 싶은 쪽으로 미세요');
-  const knobR = document.createElement('div'); knobR.className = 'knob'; joyR.appendChild(knobR);
-  $('walkHud').appendChild(joyR);
-  let joyRId = null, lookX = 0, lookY = 0;
-  // 가운데 조금은 무시(떨림 방지), 많이 밀수록 빠르게 돈다.
-  function setLook(dx, dy) {
-    const max = joyR.offsetWidth / 2 - 10 > 0 ? joyR.offsetWidth / 2 - 10 : 56, len = Math.hypot(dx, dy), k = len > max ? max / len : 1;
-    dx *= k; dy *= k;
-    knobR.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
-    const dz = 0.1, sh = (v) => Math.abs(v) < dz ? 0 : Math.sign(v) * (Math.abs(v) - dz) / (1 - dz);
-    const nx = sh(dx / max), ny = sh(dy / max);
-    lookX = nx * Math.abs(nx); lookY = ny * Math.abs(ny);
-  }
-  function joyRPoint(e) { const r = joyR.getBoundingClientRect(); setLook(e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2); }
-  joyR.addEventListener('pointerdown', function (e) {
-    e.preventDefault(); e.stopPropagation(); joyRId = e.pointerId;
-    try { joyR.setPointerCapture(e.pointerId); } catch (err) {}
-    joyRPoint(e);
-  });
-  joyR.addEventListener('pointermove', function (e) { if (e.pointerId === joyRId) { e.preventDefault(); joyRPoint(e); } });
-  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (ev) {
-    joyR.addEventListener(ev, function (e) { if (e.pointerId === joyRId) { joyRId = null; setLook(0, 0); } });
-  });
-  let lookT = 0;
-  (function lookTick(t) {
-    const dt = Math.min(0.05, (t - lookT) / 1000); lookT = t;
-    if (walk && (lookX || lookY)) {
-      yaw -= lookX * 2.4 * dt;
-      pitch = Math.max(-1.45, Math.min(1.45, pitch - lookY * 1.6 * dt));
-    } else if (!walk && joyRId !== null) { joyRId = null; setLook(0, 0); }
-    requestAnimationFrame(lookTick);
-  })(0);
-
-  // ---------- loop ----------
-`);
-
 // 7i) 1인칭에 들어가면 화면 전체로 (웹: 앱의 위쪽 막대·아래 탭을 덮고, 가능한 폰은 가로로 돌린다)
 rep(`    document.body.classList.remove('sitting'); syncWalkTools();`, `    document.body.classList.remove('sitting'); syncWalkTools(); walkEnv(true);`);
 rep(`    pose = null; pitch = 0; stopAllWater();`, `    pose = null; pitch = 0; stopAllWater(); walkEnv(false);`);
 rep(`</style>`, `
-  /* ---------- 세로 화면 1인칭: 가로로 돌리라는 안내 (잠깐 보였다 사라진다) ---------- */
+  /* ---------- 폰은 세로인 채 화면만 옆으로 눕혀 보여줄 때: 안내와 방향 바꾸기 ---------- */
   .rotateHint { display: none; }
   @keyframes rhFade { 0%, 75% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
-  @media (orientation: portrait) {
-    body.touch.walking .rotateHint {
-      display: block; position: fixed; top: calc(env(safe-area-inset-top, 0px) + 68px); left: 50%; transform: translateX(-50%);
-      z-index: 20; padding: 7px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; pointer-events: none;
-      background: var(--panel); border: 1px solid var(--line); animation: rhFade 6s forwards;
-    }
+  body.touch.walking.rotated .rotateHint {
+    display: block; position: fixed; top: calc(env(safe-area-inset-top, 0px) + 68px); left: 50%; transform: translateX(-50%);
+    z-index: 20; padding: 7px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; pointer-events: none;
+    background: var(--panel); border: 1px solid var(--line); animation: rhFade 6s forwards;
   }
+  .walkTools .flipBtn { display: none; }
+  body.rotated .walkTools .flipBtn { display: block; }
 </style>`);
 rep(`  // ---------- loop ----------\n`, `  // ---------- 1인칭: 전체 화면 · 가로 ----------
-  const rotateHint = document.createElement('div'); rotateHint.className = 'rotateHint'; rotateHint.textContent = '폰을 가로로 돌리면 더 편해요';
+  const rotateHint = document.createElement('div'); rotateHint.className = 'rotateHint'; rotateHint.textContent = '폰을 옆으로 돌려서 보세요';
   $('walkHud').appendChild(rotateHint);
+  // 앱이 화면을 옆으로 눕힌 방향이 반대면 눌러서 뒤집는다
+  const flipBtn = document.createElement('button'); flipBtn.className = 'flipBtn'; flipBtn.textContent = '↻ 방향';
+  flipBtn.addEventListener('click', () => sendToApp({ type: 'flip' }));
+  wt.appendChild(flipBtn);
   function walkEnv(on) {
     sendToApp({ type: 'walk', on: on });   // 웹 앱은 이 신호로 시뮬레이터를 화면 전체로 키운다
     if (window.ReactNativeWebView) return;
@@ -783,8 +724,12 @@ rep(`  // ---------- loop ----------\n`, `  // ---------- 1인칭: 전체 화면
         // 안드로이드 크롬은 전체 화면에서 가로로 고정할 수 있다 (아이폰은 직접 돌려야 한다)
         Promise.resolve(p).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(function () {});
       } else {
-        if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
-        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {});
+        // 나가면 바로 세로로: 가로로 고정돼 있었다면 세로로 먼저 돌리고 전체 화면을 끝낸 뒤 고정을 푼다
+        const done = function () {
+          try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {}); } catch (err) {}
+          setTimeout(function () { try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (err) {} }, 400);
+        };
+        if (document.fullscreenElement && screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').then(done, done); else done();
       }
     } catch (err) {}
   }
@@ -977,6 +922,7 @@ rep(`  tick();\n})();`, `  // walls facing the camera become invisible but still
       sendToApp({ type: 'state', id: msg.id, state: st });
     }
     else if (msg.type === 'reset') location.reload();
+    else if (msg.type === 'rotated') document.body.classList.toggle('rotated', !!msg.on);
   }
   window.__oneroomReceive = receive;   // native: injectJavaScript(...)
   window.addEventListener('message', function (e) {   // web: iframe.contentWindow.postMessage(...)
