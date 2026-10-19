@@ -14,11 +14,23 @@ if (!isSupabaseConfigured) {
   );
 }
 
+// 개발 서버(localhost)를 웹에서 열 때는 로그인을 탭이 열려 있는 동안만 기억한다(새로고침은 유지).
+// 서버를 껐다 켜고 새 탭으로 열면 로그인 화면부터 나와서, 가입·로그인 흐름을 매번 확인할 수 있다.
+// 배포된 주소(Vercel)와 휴대폰 앱은 예전처럼 오래 유지된다.
+const authStorage =
+  Platform.OS === 'web' && __DEV__ && typeof window !== 'undefined' && window.sessionStorage
+    ? {
+        getItem: (k: string) => Promise.resolve(window.sessionStorage.getItem(k)),
+        setItem: (k: string, v: string) => Promise.resolve(window.sessionStorage.setItem(k, v)),
+        removeItem: (k: string) => Promise.resolve(window.sessionStorage.removeItem(k)),
+      }
+    : AsyncStorage;
+
 // createClient throws on an empty/invalid URL, so fall back to a placeholder
 // that keeps the app bootable (auth calls will simply fail) until .env is set.
 export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder', {
   auth: {
-    storage: AsyncStorage,
+    storage: authStorage,
     autoRefreshToken: true,
     // Remember the login across refreshes and app restarts (stored via AsyncStorage / localStorage on web).
     persistSession: true,
