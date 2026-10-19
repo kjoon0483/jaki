@@ -1,10 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { LegalSheet } from '@/components/legal-sheet';
+import { AdminSheet } from '@/components/mypage/admin-sheet';
 import { BlockedSheet } from '@/components/mypage/blocked-sheet';
 import { MyPost, MyPostsSheet } from '@/components/mypage/my-posts-sheet';
 import { NicknameSheet } from '@/components/mypage/nickname-sheet';
@@ -16,6 +17,7 @@ import { Spacing } from '@/constants/theme';
 import { LegalDoc, PRIVACY, TERMS } from '@/data/legal';
 import { useRooms } from '@/hooks/use-rooms';
 import { useTheme } from '@/hooks/use-theme';
+import { fetchIsAdmin } from '@/lib/admin';
 import { communityError, LEGACY_POST_COLUMNS } from '@/lib/community';
 import { confirmAsync, notify } from '@/lib/confirm';
 import { monthKey } from '@/lib/dates';
@@ -51,8 +53,20 @@ export default function MyPageScreen() {
   const [postsLoading, setPostsLoading] = useState(false);
   const [postsError, setPostsError] = useState<string | null>(null);
   const [blockedOpen, setBlockedOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [legalDoc, setLegalDoc] = useState<LegalDoc | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Only the administrator sees the 관리자 menu (checked on the server, so it can't be faked here).
+  useEffect(() => {
+    let alive = true;
+    if (me) fetchIsAdmin().then((ok) => alive && setIsAdmin(ok));
+    return () => {
+      alive = false;
+      setIsAdmin(false);
+    };
+  }, [me]);
 
   const loadMyPosts = useCallback(async () => {
     if (!me) return;
@@ -191,6 +205,15 @@ export default function MyPageScreen() {
         </Card>
       </View>
 
+      {isAdmin ? (
+        <View style={styles.section}>
+          <SectionHeader title="관리자" />
+          <Card style={styles.menu}>
+            <MenuRow icon="flag-outline" label="신고 관리" onPress={() => setAdminOpen(true)} last />
+          </Card>
+        </View>
+      ) : null}
+
       {/* 약관 */}
       <View style={styles.section}>
         <SectionHeader title="정보" />
@@ -220,6 +243,7 @@ export default function MyPageScreen() {
         onDelete={deletePost}
       />
       <BlockedSheet visible={blockedOpen} onClose={() => setBlockedOpen(false)} />
+      {isAdmin ? <AdminSheet visible={adminOpen} onClose={() => setAdminOpen(false)} /> : null}
       <LegalSheet doc={legalDoc} onClose={() => setLegalDoc(null)} />
     </Screen>
   );

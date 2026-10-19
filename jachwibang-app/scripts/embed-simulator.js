@@ -376,6 +376,13 @@ rep(`  // ---------- loop ----------\n`, `  if (EMBED) {
 `);
 
 // 7f) Duplicate furniture: [복제] button on the edit bar, and a long press on furniture opens a 복제/삭제 menu
+// 휴대폰: 선택되지 않은 가구를 끌면 가구가 아니라 화면이 돌아간다. 가구는 한 번 눌러 선택한 뒤에 끌어야 움직인다.
+rep(`        select(it);
+        if (it.userData.locked) return;   // locked`, `        const wasSel = selected === it;
+        select(it);
+        if (it.userData.locked) return;   // locked`);
+rep(`        action = { type: 'drag', item: it,`, `        if (e.pointerType === 'touch' && !wasSel) return;
+        action = { type: 'drag', item: it,`);
 rep(`</style>`, `
   /* ---------- 가구 길게 누르기 메뉴 ---------- */
   .ctxMenu { position: fixed; z-index: 40; display: flex; gap: 6px; padding: 6px; }
@@ -429,13 +436,16 @@ rep(`  // ---------- loop ----------\n`, `  // ---------- 가구 복제 / 길게
       sx = e.clientX; sy = e.clientY;
       timer = setTimeout(function () {
         timer = 0;
-        if (!action || action.type !== 'drag') return;
-        const it = action.item;
-        // 손가락이 살짝 움직여 가구가 밀렸으면 제자리로
-        it.position.copy(action.start); action.carry.forEach((c) => c.o.position.copy(c.p0)); applyItemY(it);
-        action = null; controls.enabled = true; downAt = null;
-        document.body.classList.remove('dragItem'); canvas.style.cursor = 'grab';
-        try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+        const dragging = action && action.type === 'drag';
+        const it = dragging ? action.item : pickFrom(movables, true);
+        if (!it || it.userData.locked || (action && !dragging)) return;
+        if (dragging) {
+          // 손가락이 살짝 움직여 가구가 밀렸으면 제자리로
+          it.position.copy(action.start); action.carry.forEach((c) => c.o.position.copy(c.p0)); applyItemY(it);
+          action = null; controls.enabled = true; downAt = null;
+          document.body.classList.remove('dragItem'); canvas.style.cursor = 'grab';
+          try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+        }
         select(it); target = it;
         bDup.hidden = it.userData.key === 'bathroom';
         menu.hidden = false;
