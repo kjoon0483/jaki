@@ -320,6 +320,16 @@ rep(`</style>`, `
   .grip::before { content: ''; width: 40px; height: 5px; border-radius: 3px; background: var(--line); }
   body.embed .phead { padding-top: 0; }
   body.embed .panel.tall .pbody { max-height: 58vh; }
+  /* 펼친 동안엔 '방 크기' 줄을 없애고 [접기]를 손잡이 줄 오른쪽 끝으로 올려, 목록에 높이를 더 준다 */
+  body.embed .panel:not(.collapsed) .grip { height: 30px; }
+  body.embed .panel:not(.collapsed) .phead { position: absolute; top: 2px; right: 8px; padding: 0; z-index: 3; }
+  body.embed .panel:not(.collapsed) .phead > div { display: none; }
+  body.embed .panel:not(.collapsed) .phead button { min-height: 28px; padding: 2px 12px; font-size: 12.5px; }
+  body.embed .panel:not(.collapsed) .pbody { max-height: min(36vh, 320px); }
+  body.embed.touch .panel .tabs button { min-height: 36px; }
+  body.embed.touch .subtabs button, body.embed.touch .pick .cats button { min-height: 32px; padding: 3px 12px; }
+  body.embed .subtabs { padding: 6px 2px 4px; }
+  body.embed .pick .cats { padding-bottom: 6px; }
 </style>`);
 rep(`  // ---------- loop ----------\n`, `  if (EMBED) {
     // 탭 안의 묶음(방 크기·외벽 모양·창문·복층…)을 칩으로 나눠 한 번에 하나만 보여준다. 스크롤이 줄어든다.
