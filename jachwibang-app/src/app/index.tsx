@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BudgetGoalSheet } from '@/components/budget/budget-goal-sheet';
 import { ExpenseSheet } from '@/components/budget/expense-sheet';
@@ -26,9 +26,13 @@ export default function HomeScreen() {
   const { expenses, monthlyBudget } = useBudget();
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [goalOpen, setGoalOpen] = useState(false);
+  const [pinWidth, setPinWidth] = useState(0);
   const { rooms, refresh } = useRooms();
   const { pinnedIds } = usePinnedRooms();
   const pinned = pinnedIds.map((id) => rooms.find((r) => r.id === id)).filter((r): r is NonNullable<typeof r> => !!r);
+
+  // 고정한 방이 한 개면 한 줄을 꽉 채우고, 두 개부터는 두 칸씩 채워 오른쪽 끝까지 닿게 한다.
+  const cardWidth = pinned.length === 1 ? pinWidth : Math.max(0, Math.floor((pinWidth - Spacing.three) / 2));
 
   // 3D 화면에서 방을 저장·삭제하고 돌아왔을 때 최신 목록으로.
   useFocusEffect(
@@ -87,15 +91,15 @@ export default function HomeScreen() {
             )}
           </Pressable>
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pinRow}>
+          <View style={styles.pinRow} onLayout={(e) => setPinWidth(e.nativeEvent.layout.width)}>
             {pinned.map((r) => (
               <Pressable
                 key={r.id}
                 onPress={() => router.navigate({ pathname: '/room', params: { roomId: r.id, t: String(Date.now()) } })}
                 accessibilityRole="button"
                 accessibilityLabel={`${r.name} 열기`}
-                style={({ pressed }) => [styles.pinCard, { backgroundColor: theme.backgroundElement }, pressed && styles.pressed]}>
-                <RoomPreview room={r.data} style={styles.pinThumb} />
+                style={({ pressed }) => [styles.pinCard, { backgroundColor: theme.backgroundElement, width: cardWidth }, pressed && styles.pressed]}>
+                <RoomPreview room={r.data} style={pinned.length === 1 ? styles.pinThumbWide : styles.pinThumb} />
                 <View style={styles.pinMeta}>
                   <Ionicons name="pin" size={12} color={theme.accent} />
                   <Text style={[styles.pinName, { color: theme.text }]} numberOfLines={1}>
@@ -104,7 +108,7 @@ export default function HomeScreen() {
                 </View>
               </Pressable>
             ))}
-          </ScrollView>
+          </View>
         )}
       </View>
 
@@ -283,9 +287,10 @@ const styles = StyleSheet.create({
   roomSub: { fontSize: 12 },
   section: { gap: Spacing.three },
   pinEmpty: { alignItems: 'center', gap: Spacing.one, paddingVertical: Spacing.four },
-  pinRow: { gap: Spacing.three },
-  pinCard: { width: 158, borderRadius: 16, overflow: 'hidden' },
+  pinRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
+  pinCard: { borderRadius: 16, overflow: 'hidden' },
   pinThumb: { width: '100%', aspectRatio: 4 / 5 },
+  pinThumbWide: { width: '100%', aspectRatio: 4 / 3 },
   pinMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 9 },
   pinName: { flex: 1, fontSize: 13, fontWeight: '700' },
   list: { paddingVertical: Spacing.two, gap: 0 },
