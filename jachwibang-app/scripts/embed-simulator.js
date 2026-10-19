@@ -499,7 +499,7 @@ rep(`  tick();\n})();`, `  // walls facing the camera become invisible but still
   function fromOldFormat(st) {
     return {
       v: 1, room: st.R, wins: st.wins || [], face: st.face, time: st.time,
-      btype: 'apt', scenery: 'han', floorN: 14, season: 'spring',
+      btype: 'apt', scenery: 'none', floorN: 14, season: 'spring',
       finish: {
         floor: st.floor ? { key: st.floor.key, kind: st.floor.kind, chip: st.floor.chip } : null,
         wall: st.wall, bathFloor: st.bathFloor, bathWall: st.bathWall

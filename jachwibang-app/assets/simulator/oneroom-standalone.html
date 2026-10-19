@@ -3257,9 +3257,11 @@
     han: { ground: 0xC9D1D5, build: buildHan },
     none: { ground: 0xC9D1D5 }
   };
-  let sceneryKind = 'none';
+  let sceneryKind = 'none';   // what is drawn right now
+  let userScenery = 'none';   // what the user picked (first person shows the river even when this is 'none')
   let roomReady = false;
-  function setScenery(k) {
+  function setScenery(k, temp) {
+    if (!temp) userScenery = k;
     sceneryKind = k;
     if (roomReady) buildRoom();   // add or remove the corridor
     const sc = SCENERY[k];
@@ -3269,10 +3271,10 @@
     Object.keys(SCENERY).forEach((key) => { if (SCENERY[key].group) SCENERY[key].group.visible = key === k; });
     sky.visible = stars.visible = k !== 'none';
     G_DAY.set(sc.ground);
-    $('floorRow').hidden = k === 'none'; $('bldRow').hidden = k === 'none';
+    $('floorRow').hidden = userScenery === 'none'; $('bldRow').hidden = userScenery === 'none';
     ground.visible = k === 'none';
     scene.fog = k === 'none' ? null : hazeFog;
-    document.querySelectorAll('[data-scenery]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scenery === k)));
+    document.querySelectorAll('[data-scenery]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scenery === userScenery)));
     applySeason();
     applyEnv();
   }
@@ -4750,7 +4752,7 @@
   applyWall(WALLPAPERS[0][1]);
   roomReady = true;
   syncLoftUI();
-  setScenery('han');
+  setScenery('none');
   setFloor(+$('floorIn').value || 14);
   setBType(BTYPE);
   setCeiling(+$('ceilIn').value || 2.4);
@@ -4769,7 +4771,7 @@
   function snapshot() {
     return {
       v: 1,
-      room: { xMin: R.xMin, xMax: R.xMax, zMin: R.zMin, zMax: R.zMax }, cuts: JSON.parse(JSON.stringify(CUT)), H: H, floorN: hanFloorN, btype: BTYPE, scenery: sceneryKind,
+      room: { xMin: R.xMin, xMax: R.xMax, zMin: R.zMin, zMax: R.zMax }, cuts: JSON.parse(JSON.stringify(CUT)), H: H, floorN: hanFloorN, btype: BTYPE, scenery: userScenery,
       face: face, season: season, time: +$('timeIn').value, lights: lightsOn, entranceOpen: entranceOpen,
       loft: Object.assign({}, LOFT),
       wins: WINS.map((w) => ({ wall: w.wall, w: w.w, h: w.h, sill: w.sill, pos: w.pos, curtain: w.curtain })),
@@ -4838,7 +4840,7 @@
     // the building, view and loft follow the restored numbers
     $('floorIn').value = st.floorN || 14;
     BTYPE = BT[st.btype] ? st.btype : 'old';   // files saved before building types existed had the open-corridor block
-    setScenery(st.scenery || 'han');
+    setScenery(st.scenery || 'none');
     setBType(BTYPE);
     setFloor(st.floorN || 14);   // rebuilds the room (windows, loft, corridor) and relights
     syncLoftUI();
@@ -4948,6 +4950,7 @@
     select(null); setMode('move'); if (winActive) winActive = false;
     saved = { pos: camera.position.clone(), target: controls.target.clone() };
     cutBeforeWalk = cut; if (cut) { cut = false; applyCut(); }
+    if (userScenery === 'none') setScenery('han', true);   // first person always shows the view outside
     walk = true; fly = null; controls.enabled = false;
     document.body.classList.add('walking'); $('walkHud').hidden = false;
     camera.fov = 70; camera.near = 0.05; camera.clearViewOffset(); camera.updateProjectionMatrix();
@@ -4965,6 +4968,7 @@
     camera.position.copy(saved.pos); controls.target.copy(saved.target);
     applyViewOffset(); controls.enabled = true; controls.update();
     if (cutBeforeWalk) { cut = true; applyCut(); }
+    if (sceneryKind !== userScenery) setScenery(userScenery);
     buildRoom(); applyEnv(); canvas.style.cursor = 'default';
   }
   function walkStep(dt) {
