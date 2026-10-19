@@ -721,6 +721,97 @@ rep(`  // ---------- loop ----------\n`, `  // ---------- 1인칭: 전체 화면
   // ---------- loop ----------
 `);
 
+// 7j) Measure tool: press a point on furniture / floor / wall, drag to another point, read the distance
+rep(`    if (action) return;
+    setPtr(e); downAt =`, `    if (action) return;
+    if (mode === 'measure') return;   // 거리 재기는 아래 별도 처리
+    setPtr(e); downAt =`);
+rep(`<button data-mode="erase" aria-pressed="false">지우개</button>`, `<button data-mode="erase" aria-pressed="false">지우개</button>
+            <button data-mode="measure" aria-pressed="false">거리 재기</button>`);
+rep(`    erase: '지울 벽, 칸막이, 문, 가구를 누르면 바로 지워져요. 실수했다면 되돌리기를 누르세요.'`, `    erase: '지울 벽, 칸막이, 문, 가구를 누르면 바로 지워져요. 실수했다면 되돌리기를 누르세요.',
+    measure: '재고 싶은 곳(가구·바닥·벽)에 손가락을 대고 다른 곳까지 끌면 두 점 사이 거리가 나와요.'`);
+rep(`      erase: '지울 것을 누르세요'`, `      erase: '지울 것을 누르세요',
+      measure: '시작점을 누르고 끌어서 재요'`);
+rep(`    if (window.__modeHook) window.__modeHook(m);\n`, `    if (window.__modeHook) window.__modeHook(m);
+    if (m !== 'measure' && window.__clearMeasure) window.__clearMeasure();\n`);
+rep(`</style>`, `
+  /* ---------- 거리 재기 ---------- */
+  .measLabel {
+    position: fixed; left: 0; top: 0; z-index: 35; pointer-events: none; display: none; text-align: center;
+    padding: 5px 10px; border-radius: 10px; line-height: 1.25; white-space: nowrap;
+    background: var(--panel); border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  }
+  .measLabel b { display: block; font-size: 15px; color: var(--ink); }
+  .measLabel span { font-size: 11px; color: var(--muted); }
+</style>`);
+rep(`  // ---------- loop ----------\n`, `  // ---------- 거리 재기 ----------
+  const measG = new THREE.Group(); measG.visible = false; scene.add(measG);
+  const measMat = new THREE.MeshBasicMaterial({ color: 0xE5484D, depthTest: false, transparent: true });
+  const measDotA = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), measMat), measDotB = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), measMat);
+  const measBar = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 8), measMat);
+  [measDotA, measDotB, measBar].forEach((m) => { m.renderOrder = 40; measG.add(m); });
+  const measLabel = document.createElement('div'); measLabel.className = 'measLabel'; document.body.appendChild(measLabel);
+  let measA = null, measB = null, measDrag = null, measRun = false;
+  const fmtLen = (m) => m < 1 ? Math.round(m * 100) + ' cm' : m.toFixed(2) + ' m';
+  function measPick(e) {
+    setPtr(e);
+    const hits = ray.intersectObjects([roomG].concat(movables), true);
+    for (const h of hits) { if (h.object.material === M.hiddenWall) continue; return h.point.clone(); }
+    return floorPoint();
+  }
+  function measUpdate() {
+    if (!measA || !measB) return;
+    measG.visible = true;
+    const d = measA.distanceTo(measB), dir = measB.clone().sub(measA);
+    measDotA.position.copy(measA); measDotB.position.copy(measB);
+    measBar.visible = d > 1e-4;
+    measBar.position.copy(measA).add(measB).multiplyScalar(0.5);
+    if (d > 1e-4) measBar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    const sz = (p) => Math.min(0.09, Math.max(0.02, camera.position.distanceTo(p) * 0.012));
+    measDotA.scale.setScalar(sz(measA)); measDotB.scale.setScalar(sz(measB));
+    const r = Math.min(sz(measA), sz(measB)) * 0.35; measBar.scale.set(r, d, r);
+    const hz = Math.hypot(dir.x, dir.z);
+    measLabel.innerHTML = '<b>' + fmtLen(d) + '</b>' + (d > 0.02 ? '<span>수평 ' + fmtLen(hz) + ' · 높이 ' + fmtLen(Math.abs(dir.y)) + '</span>' : '');
+    measLabel.style.display = 'block';
+    if (!measRun) { measRun = true; requestAnimationFrame(measTick); }
+  }
+  // 라벨은 두 점 가운데를 따라다닌다 (카메라를 돌려도 계속 붙어 있게)
+  function measTick() {
+    if (!measG.visible) { measRun = false; return; }
+    const m = measA.clone().add(measB).multiplyScalar(0.5).project(camera);
+    if (m.z > 1) measLabel.style.display = 'none';
+    else {
+      measLabel.style.display = 'block';
+      measLabel.style.transform = 'translate(' + ((m.x + 1) / 2 * window.innerWidth) + 'px,' + ((1 - m.y) / 2 * window.innerHeight) + 'px) translate(-50%, -140%)';
+    }
+    requestAnimationFrame(measTick);
+  }
+  window.__clearMeasure = function () { measA = measB = null; measG.visible = false; measLabel.style.display = 'none'; };
+  canvas.addEventListener('pointerdown', function (e) {
+    if (mode !== 'measure' || walk || readonly) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    const p = measPick(e); if (!p) return;
+    e.stopPropagation();
+    measDrag = e.pointerId; measA = p; measB = p.clone();
+    controls.enabled = false;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    measUpdate();
+  }, true);
+  canvas.addEventListener('pointermove', function (e) {
+    if (measDrag === null || e.pointerId !== measDrag) return;
+    const p = measPick(e); if (p) { measB = p; measUpdate(); }
+  });
+  function measEnd(e) {
+    if (measDrag === null || e.pointerId !== measDrag) return;
+    measDrag = null; controls.enabled = true;
+    try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+  }
+  canvas.addEventListener('pointerup', measEnd);
+  canvas.addEventListener('pointercancel', measEnd);
+
+  // ---------- loop ----------
+`);
+
 // 7e) Touch screens: smaller furniture edit bar, touch-only help, first person starts inside the room
 rep(`</style>`, `
   /* ---------- 터치 화면: 가구 편집 막대를 짧게 (투명도 빼고, 색상은 버튼으로 펼치기) ---------- */
@@ -733,31 +824,7 @@ rep(`</style>`, `
   .touchHelp ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--ink); }
   .touchHelp li b { font-weight: 600; }
 </style>`);
-rep(`    WP.set(doorX0() + 0.75, 0, R.zMax + 1.1); yaw = 0; pitch = 0; feetY = 0;\n`,
-`    WP.set(doorX0() + 0.75, 0, R.zMax + 1.1); yaw = 0; pitch = 0; feetY = 0;
-    // 휴대폰에서는 현관문 밖이 아니라 방 안 빈 곳에서, 창문 쪽(위쪽 벽)을 보며 시작한다.
-    if (document.body.classList.contains('touch')) { const sp = walkSpawnInside(); if (sp) WP.set(sp.x, 0, sp.z); }
-`);
-rep(`  // ---------- loop ----------\n`, `  // 1인칭 시작 자리: 방 가운데에서 가까운 순서로, 가구·벽·잘린 모서리에서 떨어진 빈 곳.
-  function walkSpawnInside() {
-    const M0 = 0.45, cx = (R.xMin + R.xMax) / 2, cz = (R.zMin + R.zMax) / 2, pts = [];
-    for (let x = R.xMin + M0; x <= R.xMax - M0; x += 0.25) for (let z = R.zMin + M0; z <= R.zMax - M0; z += 0.25) pts.push({ x: x, z: z });
-    pts.sort((a, b) => Math.hypot(a.x - cx, a.z - cz) - Math.hypot(b.x - cx, b.z - cz));
-    const inCut = (p) => ['nw', 'ne', 'sw', 'se'].some(function (c) {
-      const k = CUT[c]; if (!k || !(k[0] > 0 && k[1] > 0)) return false;
-      const inX = c[1] === 'w' ? p.x < R.xMin + k[0] + M0 : p.x > R.xMax - k[0] - M0;
-      const inZ = c[0] === 'n' ? p.z < R.zMin + k[1] + M0 : p.z > R.zMax - k[1] - M0;
-      return inX && inZ;
-    });
-    const occupied = (p) => movables.some(function (g) {
-      const u = g.userData, ry = g.rotation.y, dx = p.x - g.position.x, dz = p.z - g.position.z;
-      const lx = dx * Math.cos(ry) - dz * Math.sin(ry), lz = dx * Math.sin(ry) + dz * Math.cos(ry);
-      return Math.abs(lx) < (u.w || 0.1) / 2 + 0.3 && Math.abs(lz) < (u.d || 0.1) / 2 + 0.3;
-    });
-    return pts.find((p) => !inCut(p) && !occupied(p)) || null;
-  }
-
-  if (TOUCH) {
+rep(`  // ---------- loop ----------\n`, `  if (TOUCH) {
     // 가구 편집 막대: 색상은 '색상' 버튼을 눌러야 펼쳐진다 (색을 바꿀 수 없는 물건이면 버튼도 숨김).
     const selbarEl = $('selbar');
     const colorBtn = document.createElement('button'); colorBtn.className = 'colorToggle'; colorBtn.textContent = '색상';
