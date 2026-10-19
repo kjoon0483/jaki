@@ -280,6 +280,12 @@
   body.embed .subtabs { padding: 6px 2px 4px; }
   body.embed .pick .cats { padding-bottom: 6px; }
 
+  /* ---------- 가구 길게 누르기 메뉴 ---------- */
+  .ctxMenu { position: fixed; z-index: 40; display: flex; gap: 6px; padding: 6px; }
+  .ctxMenu[hidden] { display: none; }
+  .ctxMenu button { min-height: 40px; padding: 6px 16px; font-weight: 600; }
+  body.walking .ctxMenu, body.readonly .ctxMenu { display: none; }
+
   /* ---------- 터치 화면: 가구 편집 막대를 짧게 (투명도 빼고, 색상은 버튼으로 펼치기) ---------- */
   body.touch .selop { display: none !important; }
   body.touch .selbar:not(.colors-open) #colorRow { display: none; }
@@ -659,6 +665,7 @@
       <label class="selop" title="마우스를 올리면 다시 또렷해져요">투명도<input id="selOpIn" type="range" min="0" max="75" step="5" value="0" aria-label="편집 막대 투명도"></label>
       <button id="lockBtn" aria-pressed="false">위치 고정</button>
       <button class="ghost danger" id="delRoomBtn" hidden>방 전체 삭제</button>
+      <button id="dupBtn">복제</button>
       <button class="ghost danger" id="delBtn">삭제</button>
     </div>
     <div class="slider">
@@ -5375,6 +5382,71 @@
     });
     grip.addEventListener('pointercancel', () => { gripStart = null; });
   }
+
+  // ---------- 가구 복제 / 길게 눌러 메뉴 ----------
+  function duplicateItem(src) {
+    const u = src && src.userData;
+    if (!u || u.key === 'bathroom') return null;
+    let g;
+    if (u.kind === 'wall') {
+      g = makeWall(u.wtype, u.w);
+      placeItem(g, src.position.x + 0.4, src.position.z + 0.4, u.angle);
+    } else {
+      const f = FURN[u.key]; if (!f) return null;
+      g = makeFurniture(u.key);
+      const v = g.userData;
+      v.open = !!u.open; v.on = u.on !== false; if (u.inch) v.inch = u.inch; v.onLoft = !!u.onLoft;
+      placeItem(g, src.position.x + 0.4, src.position.z + 0.4, u.angle);
+      if (f.rebuild || Math.abs(u.w - v.w) > 1e-3 || Math.abs(u.d - v.d) > 1e-3 || (u.h && Math.abs(u.h - (v.h || 0)) > 1e-3)) resizeFurniture(g, u.w, u.d, u.h || undefined);
+      (u.parts || []).forEach(function (pt, i) {
+        const q = v.parts[i]; if (!q) return;
+        q.mat.color.copy(pt.mat.color); if (q.mat.userData.glow) q.mat.emissive.copy(q.mat.color);
+      });
+      if (v.lightObj) applyLamp(g);
+      v.lift = u.lift || 0; clampItem(g); applyItemY(g);
+    }
+    select(g);
+    return g;
+  }
+  $('dupBtn').addEventListener('click', () => { if (selected) duplicateItem(selected); });
+  new MutationObserver(() => { $('dupBtn').hidden = !selected || selected.userData.key === 'bathroom'; })
+    .observe($('selName'), { childList: true, characterData: true, subtree: true });
+
+  (function longPress() {
+    const menu = document.createElement('div'); menu.className = 'card ctxMenu'; menu.hidden = true;
+    const bDup = document.createElement('button'); bDup.textContent = '복제';
+    const bDel = document.createElement('button'); bDel.className = 'ghost danger'; bDel.textContent = '삭제';
+    menu.append(bDup, bDel); document.body.appendChild(menu);
+    let target = null, timer = 0, sx = 0, sy = 0;
+    const close = () => { menu.hidden = true; target = null; };
+    bDup.addEventListener('click', () => { if (target) duplicateItem(target); close(); });
+    bDel.addEventListener('click', () => { if (target && !target.userData.locked) eraseItems([target]); close(); });
+    document.addEventListener('pointerdown', (e) => { if (!menu.hidden && !menu.contains(e.target)) close(); }, true);
+    const stop = () => { clearTimeout(timer); timer = 0; };
+    canvas.addEventListener('pointerdown', function (e) {
+      stop(); if (e.pointerType === 'mouse' || walk || readonly || mode !== 'move') return;
+      sx = e.clientX; sy = e.clientY;
+      timer = setTimeout(function () {
+        timer = 0;
+        if (!action || action.type !== 'drag') return;
+        const it = action.item;
+        // 손가락이 살짝 움직여 가구가 밀렸으면 제자리로
+        it.position.copy(action.start); action.carry.forEach((c) => c.o.position.copy(c.p0)); applyItemY(it);
+        action = null; controls.enabled = true; downAt = null;
+        document.body.classList.remove('dragItem'); canvas.style.cursor = 'grab';
+        try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+        select(it); target = it;
+        bDup.hidden = it.userData.key === 'bathroom';
+        menu.hidden = false;
+        const w = menu.offsetWidth, h = menu.offsetHeight;
+        menu.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, sx - w / 2)) + 'px';
+        menu.style.top = Math.max(8, sy - h - 24) + 'px';
+        try { navigator.vibrate && navigator.vibrate(15); } catch (err) {}
+      }, 550);
+    });
+    canvas.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 8) stop(); });
+    ['pointerup', 'pointercancel'].forEach((ev) => canvas.addEventListener(ev, stop));
+  })();
 
   // 1인칭 시작 자리: 방 가운데에서 가까운 순서로, 가구·벽·잘린 모서리에서 떨어진 빈 곳.
   function walkSpawnInside() {
