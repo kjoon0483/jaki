@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { RoomSimulatorProps, useSimBridge } from '@/components/room/sim-bridge';
@@ -11,6 +11,8 @@ export function RoomSimulator(props: RoomSimulatorProps) {
   const scheme = useColorScheme();
   const theme = useTheme();
   const frameRef = useRef<HTMLIFrameElement>(null);
+  // 1인칭으로 걷는 동안에는 앱의 위쪽 막대와 아래 탭까지 덮어 화면 전체를 쓴다.
+  const [walking, setWalking] = useState(false);
 
   const send = useCallback((msg: object) => {
     frameRef.current?.contentWindow?.postMessage({ ...msg, target: 'oneroom' }, '*');
@@ -19,7 +21,9 @@ export function RoomSimulator(props: RoomSimulatorProps) {
 
   useEffect(() => {
     function listener(e: MessageEvent) {
-      if (e.source === frameRef.current?.contentWindow && e.data?.source === 'oneroom') onMessage(e.data);
+      if (e.source !== frameRef.current?.contentWindow || e.data?.source !== 'oneroom') return;
+      if (e.data.type === 'walk') setWalking(!!e.data.on);
+      else onMessage(e.data);
     }
     window.addEventListener('message', listener);
     return () => window.removeEventListener('message', listener);
@@ -41,7 +45,11 @@ export function RoomSimulator(props: RoomSimulatorProps) {
         srcDoc={ONEROOM_HTML}
         onLoad={applyTheme}
         allow="fullscreen"
-        style={{ border: 0, width: '100%', height: '100%', display: 'block' }}
+        style={
+          walking
+            ? { border: 0, position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh', zIndex: 2000, display: 'block' }
+            : { border: 0, width: '100%', height: '100%', display: 'block' }
+        }
       />
     </View>
   );

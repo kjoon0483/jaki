@@ -755,6 +755,43 @@ rep(`  // ---------- loop ----------\n`, `  // ---------- 1인칭 오른쪽 시�
   // ---------- loop ----------
 `);
 
+// 7i) 1인칭에 들어가면 화면 전체로 (웹: 앱의 위쪽 막대·아래 탭을 덮고, 가능한 폰은 가로로 돌린다)
+rep(`    document.body.classList.remove('sitting'); syncWalkTools();`, `    document.body.classList.remove('sitting'); syncWalkTools(); walkEnv(true);`);
+rep(`    pose = null; pitch = 0; stopAllWater();`, `    pose = null; pitch = 0; stopAllWater(); walkEnv(false);`);
+rep(`</style>`, `
+  /* ---------- 세로 화면 1인칭: 가로로 돌리라는 안내 (잠깐 보였다 사라진다) ---------- */
+  .rotateHint { display: none; }
+  @keyframes rhFade { 0%, 75% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+  @media (orientation: portrait) {
+    body.touch.walking .rotateHint {
+      display: block; position: fixed; top: calc(env(safe-area-inset-top, 0px) + 68px); left: 50%; transform: translateX(-50%);
+      z-index: 20; padding: 7px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; pointer-events: none;
+      background: var(--panel); border: 1px solid var(--line); animation: rhFade 6s forwards;
+    }
+  }
+</style>`);
+rep(`  // ---------- loop ----------\n`, `  // ---------- 1인칭: 전체 화면 · 가로 ----------
+  const rotateHint = document.createElement('div'); rotateHint.className = 'rotateHint'; rotateHint.textContent = '폰을 가로로 돌리면 더 편해요';
+  $('walkHud').appendChild(rotateHint);
+  function walkEnv(on) {
+    sendToApp({ type: 'walk', on: on });   // 웹 앱은 이 신호로 시뮬레이터를 화면 전체로 키운다
+    if (window.ReactNativeWebView) return;
+    try {
+      if (on) {
+        const el = document.documentElement;
+        const p = !document.fullscreenElement && el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : null;
+        // 안드로이드 크롬은 전체 화면에서 가로로 고정할 수 있다 (아이폰은 직접 돌려야 한다)
+        Promise.resolve(p).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(function () {});
+      } else {
+        if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {});
+      }
+    } catch (err) {}
+  }
+
+  // ---------- loop ----------
+`);
+
 // 7e) Touch screens: smaller furniture edit bar, touch-only help, first person starts inside the room
 rep(`</style>`, `
   /* ---------- 터치 화면: 가구 편집 막대를 짧게 (투명도 빼고, 색상은 버튼으로 펼치기) ---------- */

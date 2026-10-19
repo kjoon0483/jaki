@@ -325,6 +325,17 @@
   }
   body.touch .walkHelp strong::after { content: ' · 왼쪽 원으로 걷고, 오른쪽 원이나 화면 끌기로 둘러봐요'; font-weight: 400; color: var(--muted); }
 
+  /* ---------- 세로 화면 1인칭: 가로로 돌리라는 안내 (잠깐 보였다 사라진다) ---------- */
+  .rotateHint { display: none; }
+  @keyframes rhFade { 0%, 75% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+  @media (orientation: portrait) {
+    body.touch.walking .rotateHint {
+      display: block; position: fixed; top: calc(env(safe-area-inset-top, 0px) + 68px); left: 50%; transform: translateX(-50%);
+      z-index: 20; padding: 7px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; pointer-events: none;
+      background: var(--panel); border: 1px solid var(--line); animation: rhFade 6s forwards;
+    }
+  }
+
   /* ---------- 터치 화면: 가구 편집 막대를 짧게 (투명도 빼고, 색상은 버튼으로 펼치기) ---------- */
   body.touch .selop { display: none !important; }
   body.touch .selbar:not(.colors-open) #colorRow { display: none; }
@@ -5148,7 +5159,7 @@
     cutBeforeWalk = cut; if (cut) { cut = false; applyCut(); }
     if (userScenery === 'none') setScenery('han', true);   // first person always shows the view outside
     walk = true; fly = null; controls.enabled = false;
-    document.body.classList.remove('sitting'); syncWalkTools();
+    document.body.classList.remove('sitting'); syncWalkTools(); walkEnv(true);
     document.body.classList.add('walking'); $('walkHud').hidden = false;
     camera.fov = 70; camera.near = 0.05; camera.clearViewOffset(); camera.updateProjectionMatrix();
     // start outside the front door, facing it
@@ -5160,7 +5171,7 @@
   }
   function exitWalk() {
     if (!walk) return;
-    pose = null; pitch = 0; stopAllWater();
+    pose = null; pitch = 0; stopAllWater(); walkEnv(false);
     walk = false; Object.keys(keys).forEach((k) => { keys[k] = false; });
     if (document.pointerLockElement) document.exitPointerLock();
     document.body.classList.remove('walking'); $('walkHud').hidden = true;
@@ -5715,6 +5726,25 @@
     } else if (!walk && joyRId !== null) { joyRId = null; setLook(0, 0); }
     requestAnimationFrame(lookTick);
   })(0);
+
+  // ---------- 1인칭: 전체 화면 · 가로 ----------
+  const rotateHint = document.createElement('div'); rotateHint.className = 'rotateHint'; rotateHint.textContent = '폰을 가로로 돌리면 더 편해요';
+  $('walkHud').appendChild(rotateHint);
+  function walkEnv(on) {
+    sendToApp({ type: 'walk', on: on });   // 웹 앱은 이 신호로 시뮬레이터를 화면 전체로 키운다
+    if (window.ReactNativeWebView) return;
+    try {
+      if (on) {
+        const el = document.documentElement;
+        const p = !document.fullscreenElement && el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : null;
+        // 안드로이드 크롬은 전체 화면에서 가로로 고정할 수 있다 (아이폰은 직접 돌려야 한다)
+        Promise.resolve(p).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(function () {});
+      } else {
+        if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {});
+      }
+    } catch (err) {}
+  }
 
   // 1인칭 시작 자리: 방 가운데에서 가까운 순서로, 가구·벽·잘린 모서리에서 떨어진 빈 곳.
   function walkSpawnInside() {
