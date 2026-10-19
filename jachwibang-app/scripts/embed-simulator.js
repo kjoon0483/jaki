@@ -3,7 +3,7 @@
 //   npm run embed:simulator                       (assets/simulator/oneroom-standalone.html 사용)
 //   npm run embed:simulator -- "../새 시뮬레이터.html"   (다른 파일 사용)
 // 붙이는 것: 앱과 메시지 주고받기(저장·불러오기·미리보기 사진), 커뮤니티 보기 전용 모드,
-// 앱 초록 색상, 휴대폰용 아래쪽 패널, 앱 안에서는 브라우저 자동 저장 끄기, 예전 형식 방 불러오기.
+// 앱 파랑 색상, 휴대폰용 아래쪽 패널, 앱 안에서는 브라우저 자동 저장 끄기, 예전 형식 방 불러오기.
 // 새 버전에서 고칠 자리를 못 찾으면 어디인지 알려주고 멈춘다.
 const fs = require('fs');
 const path = require('path');
@@ -18,20 +18,20 @@ function rep(a, b, all) {
   s = all ? s.split(a).join(b) : s.replace(a, () => b);
 }
 
-// 1) App palette (green), light + dark
+// 1) App palette (cerulean blue), light + dark
 rep(`    --bg: #DCE3E6; --panel: rgba(247,249,250,0.94); --ink: #1E2A31; --muted: #5B6A72;
     --line: #C3CDD2; --accent: #3552A6; --accent-ink: #FFFFFF; --danger: #B03A3A;`,
-`    --bg: #E6E2D8; --panel: rgba(250,247,241,0.95); --ink: #22281F; --muted: #5F6356;
-    --line: #D3C8B4; --accent: #2F5446; --accent-ink: #FFFFFF; --danger: #A83A34;`);
+`    --bg: #DCE9F1; --panel: rgba(244,249,252,0.95); --ink: #14232E; --muted: #52646F;
+    --line: #BCD3E2; --accent: #0B6FA4; --accent-ink: #FFFFFF; --danger: #A83A34;`);
 rep(`--bg: #151B20; --panel: rgba(28,36,42,0.94); --ink: #E6ECEF; --muted: #9AA8B0;
       --line: #34424B; --accent: #7F9BEA; --accent-ink: #0F1720; --danger: #E27C7C;`,
-`--bg: #161A16; --panel: rgba(33,38,33,0.95); --ink: #F1EFE7; --muted: #B3B0A2;
-      --line: #384036; --accent: #9DB892; --accent-ink: #141A14; --danger: #D4837A;`);
+`--bg: #0F171D; --panel: rgba(24,35,43,0.95); --ink: #EAF2F7; --muted: #A6B6C0;
+      --line: #2C3F4C; --accent: #7FBCE3; --accent-ink: #0B141A; --danger: #D4837A;`);
 rep(`    --bg: #151B20; --panel: rgba(28,36,42,0.94); --ink: #E6ECEF; --muted: #9AA8B0;
     --line: #34424B; --accent: #7F9BEA; --accent-ink: #0F1720; --danger: #E27C7C;`,
-`    --bg: #161A16; --panel: rgba(33,38,33,0.95); --ink: #F1EFE7; --muted: #B3B0A2;
-    --line: #384036; --accent: #9DB892; --accent-ink: #141A14; --danger: #D4837A;`);
-rep('0x3552A6', '0x2F5446', true);
+`    --bg: #0F171D; --panel: rgba(24,35,43,0.95); --ink: #EAF2F7; --muted: #A6B6C0;
+    --line: #2C3F4C; --accent: #7FBCE3; --accent-ink: #0B141A; --danger: #D4837A;`);
+rep('0x3552A6', '0x0B6FA4', true);
 
 // 2) Phone layout + read-only view bar styles
 rep(`</style>`, `
@@ -142,7 +142,7 @@ rep(`</style>`, `
   .joy {
     position: fixed; left: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); z-index: 20;
     width: 132px; height: 132px; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none;
-    background: rgba(20,26,22,0.28); border: 2px solid rgba(255,255,255,0.6);
+    background: rgba(14,28,38,0.28); border: 2px solid rgba(255,255,255,0.6);
   }
   .joy .knob {
     position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%;

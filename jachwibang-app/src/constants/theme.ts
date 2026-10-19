@@ -1,6 +1,5 @@
 /**
- * Brand palette derived from the 자취방 키우기 logo (deep green roof, sage green
- * furniture, warm cream walls, terracotta plant pot).
+ * Brand palette: cool cerulean blue UI (the logo's terracotta plant pot stays as the warm accent).
  */
 
 import '@/global.css';
@@ -8,45 +7,46 @@ import '@/global.css';
 import { Platform } from 'react-native';
 
 export const Colors = {
+  // 시원한 세룰리안(cerulean) 블루 계열.
   // 채도·대비 기준: 본문 글자는 배경 대비 4.5:1 이상(WCAG AA), 아이콘·강조색은 3:1 이상.
-  // 다크모드 강조색은 라이트보다 채도를 낮춰(≈50%) 어두운 배경에서 번져 보이지 않게 한다.
+  // 다크모드 강조색은 라이트보다 채도를 낮춰 어두운 배경에서 번져 보이지 않게 한다.
   light: {
-    text: '#22281F',
-    textSecondary: '#5F6356',
-    background: '#FAF7F1', // 크림 벽
-    backgroundElement: '#F2ECE1', // 밝은 우드 카드
-    backgroundSelected: '#E5DCCB',
-    accent: '#2F5446', // 짙은 초록 지붕
-    accentSoft: '#E1E9DA',
+    text: '#14232E',
+    textSecondary: '#52646F',
+    background: '#F4F9FC', // 맑은 하늘빛 벽
+    backgroundElement: '#E7F0F6', // 연한 하늘색 카드
+    backgroundSelected: '#D2E3EE',
+    accent: '#0B6FA4', // 세룰리안 블루
+    accentSoft: '#DCEBF5',
     onAccent: '#FFFFFF',
-    // 큰 강조 카드(홈 요약 등) 배경. 다크에서는 밝은 세이지 대신 짙은 초록을 써서 눈부심을 줄인다.
-    surfaceAccent: '#2F5446',
+    // 큰 강조 카드(홈 요약 등) 배경. 다크에서는 밝은 하늘색 대신 짙은 블루를 써서 눈부심을 줄인다.
+    surfaceAccent: '#0B6FA4',
     onSurfaceAccent: '#FFFFFF',
     warm: '#B5673F', // 테라코타 화분: 강조·하이라이트 (아이콘·큰 글자용)
-    success: '#3F6B2A',
+    success: '#2E7A4F',
     danger: '#A83A34',
     // 가계부 금액 색: 수입은 파랑, 지출은 빨강 (가계부 관례)
     income: '#2D62A8',
     expense: '#B23A32',
-    border: 'rgba(34,40,31,0.12)',
+    border: 'rgba(20,35,46,0.12)',
   },
   dark: {
-    text: '#F1EFE7',
-    textSecondary: '#B3B0A2',
-    background: '#161A16', // 불 끈 저녁의 자취방
-    backgroundElement: '#212621',
-    backgroundSelected: '#2C332B',
-    accent: '#9DB892',
-    accentSoft: '#28342A',
-    onAccent: '#141A14',
-    surfaceAccent: '#2E4A3D',
-    onSurfaceAccent: '#F1EFE7',
+    text: '#EAF2F7',
+    textSecondary: '#A6B6C0',
+    background: '#0F171D', // 불 끈 저녁의 자취방
+    backgroundElement: '#18232B',
+    backgroundSelected: '#223340',
+    accent: '#7FBCE3',
+    accentSoft: '#1C3040',
+    onAccent: '#0B141A',
+    surfaceAccent: '#14486A',
+    onSurfaceAccent: '#EAF2F7',
     warm: '#D49A7A',
-    success: '#97BD7C',
+    success: '#8CC9A2',
     danger: '#D4837A',
     income: '#8DB2E0',
     expense: '#E08A80',
-    border: 'rgba(241,239,231,0.12)',
+    border: 'rgba(234,242,247,0.12)',
   },
 } as const;
 

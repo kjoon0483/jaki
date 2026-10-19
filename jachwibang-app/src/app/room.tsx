@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +10,7 @@ import { RoomsSheet } from '@/components/room/rooms-sheet';
 import { SaveRoomSheet } from '@/components/room/save-room-sheet';
 import type { RoomSimulatorHandle } from '@/components/room/sim-bridge';
 import { Spacing } from '@/constants/theme';
+import { usePinnedRooms } from '@/hooks/use-pinned-rooms';
 import { useRooms } from '@/hooks/use-rooms';
 import { useTheme } from '@/hooks/use-theme';
 import { AttachedRoom, insertPost } from '@/lib/community';
@@ -20,6 +22,10 @@ export default function RoomScreen() {
   const { session } = useAuth();
   const sim = useRef<RoomSimulatorHandle>(null);
   const { rooms, loading, error, saveRoom, deleteRoom } = useRooms();
+  const { pinnedIds, toggle: togglePin } = usePinnedRooms();
+  // 홈에서 고정한 방을 눌러 들어오면 그 방을 바로 연다.
+  const { roomId, t } = useLocalSearchParams<{ roomId?: string; t?: string }>();
+  const openedFromHome = useRef<string | null>(null);
 
   // The saved room currently open in the editor (null = not saved yet).
   const [current, setCurrent] = useState<{ id: string; name: string } | null>(null);
@@ -28,6 +34,16 @@ export default function RoomScreen() {
   const [shareRoom, setShareRoom] = useState<AttachedRoom | null>(null);
   const [busy, setBusy] = useState<'save' | 'share' | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    const openKey = `${roomId}:${t}`;
+    if (!roomId || openedFromHome.current === openKey) return;
+    const target = rooms.find((r) => r.id === roomId);
+    if (!target) return;
+    openedFromHome.current = openKey;
+    sim.current?.load(target.data);
+    setCurrent({ id: target.id, name: target.name });
+  }, [roomId, t, rooms]);
 
   useEffect(() => {
     if (!status) return;
@@ -140,6 +156,8 @@ export default function RoomScreen() {
         loading={loading}
         error={error}
         currentId={current?.id ?? null}
+        pinnedIds={pinnedIds}
+        onTogglePin={(r) => togglePin(r.id)}
         onClose={() => setListOpen(false)}
         onOpen={(r) => {
           sim.current?.load(r.data);

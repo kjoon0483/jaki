@@ -9,21 +9,21 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #E6E2D8; --panel: rgba(250,247,241,0.95); --ink: #22281F; --muted: #5F6356;
-    --line: #D3C8B4; --accent: #2F5446; --accent-ink: #FFFFFF; --danger: #A83A34;
+    --bg: #DCE9F1; --panel: rgba(244,249,252,0.95); --ink: #14232E; --muted: #52646F;
+    --line: #BCD3E2; --accent: #0B6FA4; --accent-ink: #FFFFFF; --danger: #A83A34;
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #161A16; --panel: rgba(33,38,33,0.95); --ink: #F1EFE7; --muted: #B3B0A2;
-      --line: #384036; --accent: #9DB892; --accent-ink: #141A14; --danger: #D4837A;
+      --bg: #0F171D; --panel: rgba(24,35,43,0.95); --ink: #EAF2F7; --muted: #A6B6C0;
+      --line: #2C3F4C; --accent: #7FBCE3; --accent-ink: #0B141A; --danger: #D4837A;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #161A16; --panel: rgba(33,38,33,0.95); --ink: #F1EFE7; --muted: #B3B0A2;
-    --line: #384036; --accent: #9DB892; --accent-ink: #141A14; --danger: #D4837A;
+    --bg: #0F171D; --panel: rgba(24,35,43,0.95); --ink: #EAF2F7; --muted: #A6B6C0;
+    --line: #2C3F4C; --accent: #7FBCE3; --accent-ink: #0B141A; --danger: #D4837A;
   }
   *, *::before, *::after { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -216,7 +216,7 @@
   .joy {
     position: fixed; left: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); z-index: 20;
     width: 132px; height: 132px; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none;
-    background: rgba(20,26,22,0.28); border: 2px solid rgba(255,255,255,0.6);
+    background: rgba(14,28,38,0.28); border: 2px solid rgba(255,255,255,0.6);
   }
   .joy .knob {
     position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%;
@@ -1445,7 +1445,7 @@
   const roomG = new THREE.Group(); scene.add(roomG);
   const handleG = new THREE.Group(); scene.add(handleG);
   let outerWalls = [], winMeshes = [], ceilMesh = null, walk = false;
-  const handleMat = new THREE.MeshBasicMaterial({ color: 0x2F5446, depthTest: false, transparent: true, opacity: 0.9 });
+  const handleMat = new THREE.MeshBasicMaterial({ color: 0x0B6FA4, depthTest: false, transparent: true, opacity: 0.9 });
   const bathHandleMat = new THREE.MeshBasicMaterial({ color: 0x2F8A83, depthTest: false, transparent: true, opacity: 0.9 });
 
   function wavyCurtainGeo(h, waves) {
@@ -3836,7 +3836,7 @@
   let selected = null;
   const outline = new THREE.LineLoop(
     new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 0, -0.5), new THREE.Vector3(0.5, 0, 0.5), new THREE.Vector3(-0.5, 0, 0.5)]),
-    new THREE.LineBasicMaterial({ color: 0x2F5446, depthTest: false, transparent: true })
+    new THREE.LineBasicMaterial({ color: 0x0B6FA4, depthTest: false, transparent: true })
   );
   outline.renderOrder = 30; outline.visible = false; scene.add(outline);
 
@@ -3852,7 +3852,7 @@
     $('levelRow').hidden = !(LOFT.on && u.kind === 'furniture' && u.key !== 'bathroom');
     document.querySelectorAll('[data-level]').forEach((b) => { b.setAttribute('aria-pressed', String((b.dataset.level === '1') === !!u.onLoft)); b.disabled = lk; });
     document.querySelectorAll('[data-corner]').forEach((b) => { b.disabled = lk; });
-    outline.material.color.set(lk ? 0xC47A1C : 0x2F5446);
+    outline.material.color.set(lk ? 0xC47A1C : 0x0B6FA4);
     $('selSize').textContent = u.kind === 'wall'
       ? '길이 ' + Math.round(u.w * 100) + 'cm, 높이 ' + Math.round(WALLTYPES[u.wtype].h * 100) + 'cm'
       : Math.round(u.w * 100) + ' × ' + Math.round(u.d * 100) + (u.h ? ' × 높이 ' + Math.round(u.h * 100) : '') + 'cm' + (inchOf(u) ? ' · ' + inchOf(u) + '인치' : '');
@@ -4101,7 +4101,7 @@
   const eraseOutline = new THREE.LineLoop(outline.geometry, new THREE.LineBasicMaterial({ color: 0xC0392B, depthTest: false, transparent: true }));
   eraseOutline.renderOrder = 31; eraseOutline.visible = false; scene.add(eraseOutline);
 
-  const previewMat = new THREE.MeshBasicMaterial({ color: 0x2F5446, transparent: true, opacity: 0.45, depthWrite: false });
+  const previewMat = new THREE.MeshBasicMaterial({ color: 0x0B6FA4, transparent: true, opacity: 0.45, depthWrite: false });
   const previews = [0, 1, 2, 3].map(function () {
     const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), previewMat); m.visible = false; scene.add(m); return m;
   });

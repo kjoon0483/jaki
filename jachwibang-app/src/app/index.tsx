@@ -1,15 +1,18 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BudgetGoalSheet } from '@/components/budget/budget-goal-sheet';
 import { ExpenseSheet } from '@/components/budget/expense-sheet';
+import { RoomPreview } from '@/components/community/room-preview';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Spacing } from '@/constants/theme';
 import { categoryIcon } from '@/data/categories';
+import { usePinnedRooms } from '@/hooks/use-pinned-rooms';
+import { useRooms } from '@/hooks/use-rooms';
 import { useTheme } from '@/hooks/use-theme';
 import { dateKey, formatDateLabel, monthKey } from '@/lib/dates';
 import { formatWon } from '@/lib/format';
@@ -23,6 +26,16 @@ export default function HomeScreen() {
   const { expenses, monthlyBudget } = useBudget();
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [goalOpen, setGoalOpen] = useState(false);
+  const { rooms, refresh } = useRooms();
+  const { pinnedIds } = usePinnedRooms();
+  const pinned = pinnedIds.map((id) => rooms.find((r) => r.id === id)).filter((r): r is NonNullable<typeof r> => !!r);
+
+  // 3D 화면에서 방을 저장·삭제하고 돌아왔을 때 최신 목록으로.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   const nickname =
     (session?.user.user_metadata?.nickname as string | undefined) || session?.user.email?.split('@')[0] || '';
@@ -57,7 +70,44 @@ export default function HomeScreen() {
   const over = monthlyBudget ? total > monthlyBudget : false;
 
   return (
-    <Screen eyebrow={nickname ? `안녕하세요, ${nickname}님` : '안녕하세요'} title="오늘의 자취방">
+    <Screen eyebrow={nickname ? `안녕하세요, ${nickname}님` : '안녕하세요'} title="나만의 자취방">
+      {/* 고정한 내 방: 사진으로 바로 보이고, 누르면 3D 화면에서 그 방이 열린다. */}
+      <View style={styles.section}>
+        <SectionHeader title="내 방" action={pinned.length ? '3D로 꾸미기' : undefined} onAction={() => router.navigate('/room')} />
+        {pinned.length === 0 ? (
+          <Pressable onPress={() => router.navigate('/room')} accessibilityRole="button" accessibilityLabel="내 방 꾸미러 가기">
+            {({ pressed }) => (
+              <Card tone="soft" style={[styles.pinEmpty, pressed && styles.pressed]}>
+                <Ionicons name="cube-outline" size={26} color={theme.accent} />
+                <Text style={[styles.roomTitle, { color: theme.text }]}>내 방을 3D로 꾸며보세요</Text>
+                <Text style={[styles.roomSub, { color: theme.textSecondary, textAlign: 'center' }]}>
+                  저장한 방의 핀을 누르면 여기에 바로 보여요
+                </Text>
+              </Card>
+            )}
+          </Pressable>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pinRow}>
+            {pinned.map((r) => (
+              <Pressable
+                key={r.id}
+                onPress={() => router.navigate({ pathname: '/room', params: { roomId: r.id, t: String(Date.now()) } })}
+                accessibilityRole="button"
+                accessibilityLabel={`${r.name} 열기`}
+                style={({ pressed }) => [styles.pinCard, { backgroundColor: theme.backgroundElement }, pressed && styles.pressed]}>
+                <RoomPreview room={r.data} style={styles.pinThumb} />
+                <View style={styles.pinMeta}>
+                  <Ionicons name="pin" size={12} color={theme.accent} />
+                  <Text style={[styles.pinName, { color: theme.text }]} numberOfLines={1}>
+                    {r.name}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+
       {/* 이번 달 예산 요약. 요약(가계부로 이동)과 예산 정하기 버튼은 형제로 둔다: 웹에서 버튼 안에 버튼을 못 넣는다. */}
       <Card tone="accent" style={styles.hero}>
         <Pressable
@@ -232,6 +282,12 @@ const styles = StyleSheet.create({
   roomTitle: { fontSize: 15, fontWeight: '700' },
   roomSub: { fontSize: 12 },
   section: { gap: Spacing.three },
+  pinEmpty: { alignItems: 'center', gap: Spacing.one, paddingVertical: Spacing.four },
+  pinRow: { gap: Spacing.three },
+  pinCard: { width: 158, borderRadius: 16, overflow: 'hidden' },
+  pinThumb: { width: '100%', aspectRatio: 4 / 5 },
+  pinMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 9 },
+  pinName: { flex: 1, fontSize: 13, fontWeight: '700' },
   list: { paddingVertical: Spacing.two, gap: 0 },
   empty: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.four },
   emptyText: { fontSize: 13, lineHeight: 19, textAlign: 'center' },

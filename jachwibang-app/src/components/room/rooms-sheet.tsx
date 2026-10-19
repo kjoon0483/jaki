@@ -15,6 +15,8 @@ export function RoomsSheet({
   loading,
   error,
   currentId,
+  pinnedIds,
+  onTogglePin,
   onClose,
   onOpen,
   onShare,
@@ -26,6 +28,8 @@ export function RoomsSheet({
   loading: boolean;
   error: string | null;
   currentId: string | null;
+  pinnedIds: string[];
+  onTogglePin: (room: SavedRoom) => void;
   onClose: () => void;
   onOpen: (room: SavedRoom) => void;
   onShare: (room: SavedRoom) => void;
@@ -66,6 +70,17 @@ export function RoomsSheet({
                   </Text>
                 </View>
               </Pressable>
+              <Pressable
+                onPress={() => onTogglePin(r)}
+                hitSlop={8}
+                style={styles.action}
+                accessibilityLabel={pinnedIds.includes(r.id) ? `${r.name} 홈에서 고정 해제` : `${r.name} 홈에 고정`}>
+                <Ionicons
+                  name={pinnedIds.includes(r.id) ? 'pin' : 'pin-outline'}
+                  size={18}
+                  color={pinnedIds.includes(r.id) ? theme.accent : theme.textSecondary}
+                />
+              </Pressable>
               <Pressable onPress={() => onShare(r)} hitSlop={8} style={styles.action} accessibilityLabel={`${r.name} 커뮤니티에 공유`}>
                 <Ionicons name="share-social-outline" size={18} color={theme.accent} />
               </Pressable>
@@ -76,6 +91,9 @@ export function RoomsSheet({
           ))}
         </View>
       )}
+      {rooms.length > 0 ? (
+        <Text style={[styles.msg, { color: theme.textSecondary }]}>핀을 누르면 홈 화면에 이 방이 바로 보여요.</Text>
+      ) : null}
       <Button label="새 방으로 시작하기" variant="secondary" onPress={onNew} />
     </Sheet>
   );
