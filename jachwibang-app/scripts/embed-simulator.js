@@ -376,12 +376,13 @@ rep(`  // ---------- loop ----------\n`, `  if (EMBED) {
 `);
 
 // 7f) Duplicate furniture: [복제] button on the edit bar, and a long press on furniture opens a 복제/삭제 menu
-// 휴대폰: 선택되지 않은 가구를 끌면 가구가 아니라 화면이 돌아간다. 가구는 한 번 눌러 선택한 뒤에 끌어야 움직인다.
+// 휴대폰: 가구를 눌러 선택해도 끌면 화면이 돌아간다. 가구를 옮기려면 편집 막대의 [옮기기]를 켠 뒤 끈다.
 rep(`        select(it);
         if (it.userData.locked) return;   // locked`, `        const wasSel = selected === it;
+        if (!wasSel) setTouchMove(false);
         select(it);
         if (it.userData.locked) return;   // locked`);
-rep(`        action = { type: 'drag', item: it,`, `        if (e.pointerType === 'touch' && !wasSel) return;
+rep(`        action = { type: 'drag', item: it,`, `        if (e.pointerType === 'touch' && !touchMove) return;
         action = { type: 'drag', item: it,`);
 rep(`</style>`, `
   /* ---------- 가구 길게 누르기 메뉴 ---------- */
@@ -389,8 +390,20 @@ rep(`</style>`, `
   .ctxMenu[hidden] { display: none; }
   .ctxMenu button { min-height: 40px; padding: 6px 16px; font-weight: 600; }
   body.walking .ctxMenu, body.readonly .ctxMenu { display: none; }
+  #moveBtn { display: none; }
+  body.touch #moveBtn { display: inline-block; }
+  /* 가구를 골라 아래 목록이 편집 막대로 바뀌어도 1인칭으로 바꿀 수 있게 */
+  .walkFab {
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 54px); right: 12px; z-index: 30;
+    padding: 7px 14px; border-radius: 999px; font-weight: 600; font-size: 12.5px;
+    background: var(--panel); border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  body.walking .walkFab, body.readonly .walkFab { display: none !important; }
 </style>`);
-rep(`<button class="ghost danger" id="delBtn">삭제</button>`, `<button id="dupBtn">복제</button>\n      <button class="ghost danger" id="delBtn">삭제</button>`);
+rep(`<div id="viewBar">`, `<button class="walkFab" id="walkFab">1인칭</button>
+<div id="viewBar">`);
+rep(`<button class="ghost danger" id="delBtn">삭제</button>`, `<button id="moveBtn" aria-pressed="false">옮기기</button>
+      <button id="dupBtn">복제</button>\n      <button class="ghost danger" id="delBtn">삭제</button>`);
 rep(`  // ---------- loop ----------\n`, `  // ---------- 가구 복제 / 길게 눌러 메뉴 ----------
   function duplicateItem(src) {
     const u = src && src.userData;
@@ -417,6 +430,13 @@ rep(`  // ---------- loop ----------\n`, `  // ---------- 가구 복제 / 길게
     return g;
   }
   $('dupBtn').addEventListener('click', () => { if (selected) duplicateItem(selected); });
+  $('walkFab').addEventListener('click', enterWalk);
+  // 휴대폰에서 가구는 [옮기기]를 켠 동안에만 끌어서 옮긴다. 다른 가구를 고르거나 선택을 풀면 꺼진다.
+  let touchMove = false;
+  function setTouchMove(on) { touchMove = on; $('moveBtn').setAttribute('aria-pressed', String(on)); }
+  $('moveBtn').addEventListener('click', () => setTouchMove(!touchMove));
+  new MutationObserver(() => { if ($('selbar').hidden) setTouchMove(false); })
+    .observe($('selbar'), { attributes: true, attributeFilter: ['hidden'] });
   new MutationObserver(() => { $('dupBtn').hidden = !selected || selected.userData.key === 'bathroom'; })
     .observe($('selName'), { childList: true, characterData: true, subtree: true });
 

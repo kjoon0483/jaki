@@ -285,6 +285,15 @@
   .ctxMenu[hidden] { display: none; }
   .ctxMenu button { min-height: 40px; padding: 6px 16px; font-weight: 600; }
   body.walking .ctxMenu, body.readonly .ctxMenu { display: none; }
+  #moveBtn { display: none; }
+  body.touch #moveBtn { display: inline-block; }
+  /* 가구를 골라 아래 목록이 편집 막대로 바뀌어도 1인칭으로 바꿀 수 있게 */
+  .walkFab {
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 54px); right: 12px; z-index: 30;
+    padding: 7px 14px; border-radius: 999px; font-weight: 600; font-size: 12.5px;
+    background: var(--panel); border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  body.walking .walkFab, body.readonly .walkFab { display: none !important; }
 
   /* ---------- 터치 화면: 가구 편집 막대를 짧게 (투명도 빼고, 색상은 버튼으로 펼치기) ---------- */
   body.touch .selop { display: none !important; }
@@ -648,6 +657,7 @@
   </div>
 </div>
 
+<button class="walkFab" id="walkFab">1인칭</button>
 <div id="viewBar">
   <div class="card" role="group" aria-label="보기 방식">
     <button id="vb3d" aria-pressed="true">3인칭</button>
@@ -665,6 +675,7 @@
       <label class="selop" title="마우스를 올리면 다시 또렷해져요">투명도<input id="selOpIn" type="range" min="0" max="75" step="5" value="0" aria-label="편집 막대 투명도"></label>
       <button id="lockBtn" aria-pressed="false">위치 고정</button>
       <button class="ghost danger" id="delRoomBtn" hidden>방 전체 삭제</button>
+      <button id="moveBtn" aria-pressed="false">옮기기</button>
       <button id="dupBtn">복제</button>
       <button class="ghost danger" id="delBtn">삭제</button>
     </div>
@@ -4213,9 +4224,10 @@
       if (it && p) {
         if (winActive) { winActive = false; buildRoom(); applyEnv(); }
         const wasSel = selected === it;
+        if (!wasSel) setTouchMove(false);
         select(it);
         if (it.userData.locked) return;   // locked: selecting only, dragging turns the view instead
-        if (e.pointerType === 'touch' && !wasSel) return;
+        if (e.pointerType === 'touch' && !touchMove) return;
         action = { type: 'drag', item: it, off: (floorPointAt(itemBase(it)) || p).sub(it.position), start: it.position.clone(), carry: [] };
         const isTopItem = FURN[it.userData.key] && FURN[it.userData.key].onTop;
         if (it.userData.key === 'bathroom' || !isTopItem) {
@@ -5411,6 +5423,13 @@
     return g;
   }
   $('dupBtn').addEventListener('click', () => { if (selected) duplicateItem(selected); });
+  $('walkFab').addEventListener('click', enterWalk);
+  // 휴대폰에서 가구는 [옮기기]를 켠 동안에만 끌어서 옮긴다. 다른 가구를 고르거나 선택을 풀면 꺼진다.
+  let touchMove = false;
+  function setTouchMove(on) { touchMove = on; $('moveBtn').setAttribute('aria-pressed', String(on)); }
+  $('moveBtn').addEventListener('click', () => setTouchMove(!touchMove));
+  new MutationObserver(() => { if ($('selbar').hidden) setTouchMove(false); })
+    .observe($('selbar'), { attributes: true, attributeFilter: ['hidden'] });
   new MutationObserver(() => { $('dupBtn').hidden = !selected || selected.userData.key === 'bathroom'; })
     .observe($('selName'), { childList: true, characterData: true, subtree: true });
 
