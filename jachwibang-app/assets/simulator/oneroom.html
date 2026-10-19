@@ -322,6 +322,15 @@
   .measLabel b { display: block; font-size: 15px; color: var(--ink); }
   .measLabel span { font-size: 11px; color: var(--muted); }
 
+  /* ---------- 1인칭 십자가 조준점 ---------- */
+  .crosshair { width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 0; background: none; box-shadow: none; }
+  .crosshair::before, .crosshair::after {
+    content: ''; position: absolute; background: rgba(255,255,255,0.95); border-radius: 1px; box-shadow: 0 0 0 1px rgba(0,0,0,0.5);
+  }
+  .crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; margin-left: -1px; }
+  .crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; margin-top: -1px; }
+  .crosshair.hot::before, .crosshair.hot::after { background: #FFD84D; }
+
   /* ---------- 터치 화면: 가구 편집 막대를 짧게 (투명도 빼고, 색상은 버튼으로 펼치기) ---------- */
   body.touch .selop { display: none !important; }
   body.touch .selbar:not(.colors-open) #colorRow { display: none; }
@@ -5112,6 +5121,7 @@
     for (const h of hits) {
       const o = h.object;
       if (o.userData.entrance) return { kind: 'entrance' };
+      const cw = curtainWin(o); if (cw >= 0) return { kind: 'curtain', i: cw };
       let g = o; while (g && !(g.userData && g.userData.item)) g = g.parent;
       if (g) {
         const f = FURN[g.userData.key];
@@ -5141,6 +5151,7 @@
     else if (t && t.kind === 'lamp') txt = 'E · ' + t.g.userData.name + ' ' + (t.g.userData.on ? '끄기' : '켜기');
     else if (t && EXTRA_TXT[t.kind]) txt = 'E · ' + EXTRA_TXT[t.kind](t);
     if ($('walkPrompt').textContent !== txt) $('walkPrompt').textContent = txt;
+    document.querySelector('.crosshair').classList.toggle('hot', !!txt);
   }
   function enterWalk() {
     if (walk) return;
@@ -5549,7 +5560,8 @@
   const EXTRA_TXT = {
     sit: () => '앉기', lie: () => '눕기',
     cab: (t) => t.g.userData.name + (t.g.userData.cab ? ' 닫기' : ' 열기'),
-    tap: (t) => '물 ' + (waterOn(t.g) ? '잠그기' : '틀기')
+    tap: (t) => '물 ' + (waterOn(t.g) ? '잠그기' : '틀기'),
+    curtain: (t) => '커튼 ' + (WINS[t.i] && WINS[t.i].curtain > 0.5 ? '닫기' : '열기')
   };
   function extraTarget(g, h) {
     const k = g.userData.key;
@@ -5563,6 +5575,7 @@
     if (t.kind === 'sit' || t.kind === 'lie') { startPose(t); return true; }
     if (t.kind === 'cab') { t.g.userData.cab = !t.g.userData.cab; rebuildItem(t.g); return true; }
     if (t.kind === 'tap') { toggleWater(t.g); return true; }
+    if (t.kind === 'curtain') { toggleCurtain(t.i); return true; }
     return false;
   }
 
@@ -5757,6 +5770,17 @@
   canvas.addEventListener('pointerup', measEnd);
   canvas.addEventListener('pointercancel', measEnd);
 
+  // ---------- 1인칭: 커튼 열고 닫기 ----------
+  function curtainWin(o) {
+    if (o.userData.side === undefined || o.userData.mat !== M.curtain) return -1;
+    return WINS.findIndex((w) => w._c && w._c.panels.indexOf(o) >= 0);
+  }
+  function toggleCurtain(i) {
+    const w = WINS[i]; if (!w) return;
+    animateCurtains(w.curtain > 0.5 ? 0 : 1);
+    curtainAnim.only = i;
+  }
+
   if (TOUCH) {
     // 가구 편집 막대: 색상은 '색상' 버튼을 눌러야 펼쳐진다 (색을 바꿀 수 없는 물건이면 버튼도 숨김).
     const selbarEl = $('selbar');
@@ -5827,7 +5851,7 @@
     if (curtainAnim) {
       curtainAnim.t = Math.min(1, curtainAnim.t + dt / 1.4);
       const k = curtainAnim.t < 0.5 ? 2 * curtainAnim.t * curtainAnim.t : 1 - Math.pow(-2 * curtainAnim.t + 2, 2) / 2;
-      WINS.forEach(function (w, i) { const f0 = curtainAnim.from[i] !== undefined ? curtainAnim.from[i] : w.curtain; w.curtain = f0 + (curtainAnim.to - f0) * k; updateCurtain(w); });
+      WINS.forEach(function (w, i) { if (curtainAnim.only !== undefined && curtainAnim.only !== i) return; const f0 = curtainAnim.from[i] !== undefined ? curtainAnim.from[i] : w.curtain; w.curtain = f0 + (curtainAnim.to - f0) * k; updateCurtain(w); });
       applyEnv();
       if (curtainAnim.t >= 1) { curtainAnim = null; syncWinUI(); }
     }

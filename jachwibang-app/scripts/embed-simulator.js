@@ -812,6 +812,43 @@ rep(`  // ---------- loop ----------\n`, `  // ---------- 거리 재기 --------
   // ---------- loop ----------
 `);
 
+// 7k) First person: open/close the curtain you are looking at, plus a plus-shaped crosshair
+rep(`      if (o.userData.entrance) return { kind: 'entrance' };`, `      if (o.userData.entrance) return { kind: 'entrance' };
+      const cw = curtainWin(o); if (cw >= 0) return { kind: 'curtain', i: cw };`);
+rep(`    if (t.kind === 'tap') { toggleWater(t.g); return true; }`, `    if (t.kind === 'tap') { toggleWater(t.g); return true; }
+    if (t.kind === 'curtain') { toggleCurtain(t.i); return true; }`);
+rep(`    tap: (t) => '물 ' + (waterOn(t.g) ? '잠그기' : '틀기')`, `    tap: (t) => '물 ' + (waterOn(t.g) ? '잠그기' : '틀기'),
+    curtain: (t) => '커튼 ' + (WINS[t.i] && WINS[t.i].curtain > 0.5 ? '닫기' : '열기')`);
+// 한 창문의 커튼만 움직이게 (원래는 모든 창문이 같이 움직인다)
+rep(`WINS.forEach(function (w, i) { const f0 = curtainAnim.from[i] !== undefined ? curtainAnim.from[i] : w.curtain;`,
+    `WINS.forEach(function (w, i) { if (curtainAnim.only !== undefined && curtainAnim.only !== i) return; const f0 = curtainAnim.from[i] !== undefined ? curtainAnim.from[i] : w.curtain;`);
+// 바라보는 것이 있으면 십자가가 노랗게
+rep(`if ($('walkPrompt').textContent !== txt) $('walkPrompt').textContent = txt;`, `if ($('walkPrompt').textContent !== txt) $('walkPrompt').textContent = txt;
+    document.querySelector('.crosshair').classList.toggle('hot', !!txt);`);
+rep(`</style>`, `
+  /* ---------- 1인칭 십자가 조준점 ---------- */
+  .crosshair { width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 0; background: none; box-shadow: none; }
+  .crosshair::before, .crosshair::after {
+    content: ''; position: absolute; background: rgba(255,255,255,0.95); border-radius: 1px; box-shadow: 0 0 0 1px rgba(0,0,0,0.5);
+  }
+  .crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; margin-left: -1px; }
+  .crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; margin-top: -1px; }
+  .crosshair.hot::before, .crosshair.hot::after { background: #FFD84D; }
+</style>`);
+rep(`  // ---------- loop ----------\n`, `  // ---------- 1인칭: 커튼 열고 닫기 ----------
+  function curtainWin(o) {
+    if (o.userData.side === undefined || o.userData.mat !== M.curtain) return -1;
+    return WINS.findIndex((w) => w._c && w._c.panels.indexOf(o) >= 0);
+  }
+  function toggleCurtain(i) {
+    const w = WINS[i]; if (!w) return;
+    animateCurtains(w.curtain > 0.5 ? 0 : 1);
+    curtainAnim.only = i;
+  }
+
+  // ---------- loop ----------
+`);
+
 // 7e) Touch screens: smaller furniture edit bar, touch-only help, first person starts inside the room
 rep(`</style>`, `
   /* ---------- 터치 화면: 가구 편집 막대를 짧게 (투명도 빼고, 색상은 버튼으로 펼치기) ---------- */
