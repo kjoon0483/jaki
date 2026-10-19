@@ -715,23 +715,7 @@ rep(`  // ---------- loop ----------\n`, `  // ---------- 1인칭: 전체 화면
   flipBtn.addEventListener('click', () => sendToApp({ type: 'flip' }));
   wt.appendChild(flipBtn);
   function walkEnv(on) {
-    sendToApp({ type: 'walk', on: on });   // 웹 앱은 이 신호로 시뮬레이터를 화면 전체로 키운다
-    if (window.ReactNativeWebView) return;
-    try {
-      if (on) {
-        const el = document.documentElement;
-        const p = !document.fullscreenElement && el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' }) : null;
-        // 안드로이드 크롬은 전체 화면에서 가로로 고정할 수 있다 (아이폰은 직접 돌려야 한다)
-        Promise.resolve(p).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(function () {});
-      } else {
-        // 나가면 바로 세로로: 가로로 고정돼 있었다면 세로로 먼저 돌리고 전체 화면을 끝낸 뒤 고정을 푼다
-        const done = function () {
-          try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {}); } catch (err) {}
-          setTimeout(function () { try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (err) {} }, 400);
-        };
-        if (document.fullscreenElement && screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').then(done, done); else done();
-      }
-    } catch (err) {}
+    sendToApp({ type: 'walk', on: on });   // 웹 앱이 이 신호로 전체 화면·가로(나가면 세로)를 맡는다
   }
 
   // ---------- loop ----------

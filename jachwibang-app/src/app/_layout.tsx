@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AppSplash } from '@/components/app-splash';
 import AppTabs from '@/components/navigation/app-tabs';
 import { AuthScreen } from '@/components/auth/auth-screen';
+import { PortraitGuard } from '@/components/portrait-guard';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/state/auth-state';
 import { BudgetProvider } from '@/state/budget-state';
@@ -25,6 +26,7 @@ function ThemedRoot() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
         <RootContent />
+        <PortraitGuard />
         <AppSplash />
       </AuthProvider>
     </ThemeProvider>

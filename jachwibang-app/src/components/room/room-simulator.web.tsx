@@ -17,6 +17,41 @@ export function RoomSimulator(props: RoomSimulatorProps) {
   const [portrait, setPortrait] = useState(() => typeof window !== 'undefined' && window.innerHeight > window.innerWidth);
   const [flip, setFlip] = useState(false);
   const rotated = walking && portrait;
+  // 1인칭에 들어가면 앱 전체를 전체 화면 + 가로로 (안드로이드 크롬), 나가면 바로 세로로 되돌린다.
+  // 전체 화면·방향 고정은 시뮬레이터 안쪽 프레임이 아니라 앱 전체(최상위 화면)에서 요청해야 잘 받아들여진다.
+  const wasWalking = useRef(false);
+  useEffect(() => {
+    const orient = window.screen.orientation as unknown as { lock?: (o: string) => Promise<void>; unlock?: () => void } | undefined;
+    if (walking) {
+      wasWalking.current = true;
+      document.body.dataset.walking = '1';
+      window.dispatchEvent(new Event('oneroom-walk'));
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        document.documentElement
+          .requestFullscreen({ navigationUI: 'hide' })
+          .then(() => orient?.lock?.('landscape'))
+          .catch(() => {});
+      }
+    } else if (wasWalking.current) {
+      wasWalking.current = false;
+      delete document.body.dataset.walking;
+      window.dispatchEvent(new Event('oneroom-walk'));
+      const finish = () => {
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        setTimeout(() => orient?.unlock?.(), 400);
+      };
+      if (document.fullscreenElement && orient?.lock) orient.lock('portrait').then(finish, finish);
+      else finish();
+    }
+  }, [walking]);
+  // 화면을 떠날 때 표시를 지운다
+  useEffect(
+    () => () => {
+      delete document.body.dataset.walking;
+      window.dispatchEvent(new Event('oneroom-walk'));
+    },
+    []
+  );
   useEffect(() => {
     const update = () => setPortrait(window.innerHeight > window.innerWidth);
     window.addEventListener('resize', update);
