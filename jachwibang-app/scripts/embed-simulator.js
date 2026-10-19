@@ -399,7 +399,18 @@ rep(`</style>`, `
     background: var(--panel); border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   }
   body.walking .walkFab, body.readonly .walkFab { display: none !important; }
+  /* 1인칭: 서기/앉기, 낮/밤, 조명 */
+  .walkTools { position: fixed; right: 14px; top: calc(env(safe-area-inset-top, 0px) + 74px); z-index: 20; display: flex; flex-direction: column; gap: 8px; }
+  .walkTools button {
+    min-width: 76px; padding: 8px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+    background: var(--panel); border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .walkTools button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 </style>`);
+// 앉으면 눈높이가 낮아진다 (키 설정의 약 2/3)
+rep(`return hcm / 100 - 0.11; }`, `return (hcm / 100 - 0.11) * (document.body.classList.contains('sitting') ? 0.66 : 1); }`);
+rep(`    walk = true; fly = null; controls.enabled = false;`, `    walk = true; fly = null; controls.enabled = false;
+    document.body.classList.remove('sitting'); syncWalkTools();`);
 rep(`<div id="viewBar">`, `<button class="walkFab" id="walkFab">1인칭</button>
 <div id="viewBar">`);
 rep(`<button class="ghost danger" id="delBtn">삭제</button>`, `<button id="moveBtn" aria-pressed="false">옮기기</button>
@@ -431,6 +442,26 @@ rep(`  // ---------- loop ----------\n`, `  // ---------- 가구 복제 / 길게
   }
   $('dupBtn').addEventListener('click', () => { if (selected) duplicateItem(selected); });
   $('walkFab').addEventListener('click', enterWalk);
+  // 1인칭에서 나가지 않고 앉아 보기 · 낮밤 바꾸기 · 조명 켜고 끄기
+  const wtSit = document.createElement('button'), wtTime = document.createElement('button'), wtLight = document.createElement('button');
+  const wt = document.createElement('div'); wt.className = 'walkTools';
+  wt.append(wtSit, wtTime, wtLight); $('walkHud').appendChild(wt);
+  const isDay = () => { const t = +$('timeIn').value; return t >= 7 && t < 18; };
+  function syncWalkTools() {
+    const sit = document.body.classList.contains('sitting');
+    wtSit.textContent = sit ? '일어서기' : '앉기'; wtSit.setAttribute('aria-pressed', String(sit));
+    wtTime.textContent = isDay() ? '밤으로' : '낮으로';
+    wtLight.textContent = lightsOn ? '조명 끄기' : '조명 켜기'; wtLight.setAttribute('aria-pressed', String(lightsOn));
+  }
+  wtSit.addEventListener('click', () => { document.body.classList.toggle('sitting'); syncWalkTools(); });
+  wtTime.addEventListener('click', () => {
+    $('timeIn').value = isDay() ? 21 : 12;
+    $('timeIn').dispatchEvent(new Event('input', { bubbles: true }));
+    // 밤으로 바꾸면 조명도 켜 준다
+    if (!isDay() && !lightsOn) $('lightBtn').click();
+    syncWalkTools();
+  });
+  wtLight.addEventListener('click', () => { $('lightBtn').click(); syncWalkTools(); });
   // 휴대폰에서 가구는 [옮기기]를 켠 동안에만 끌어서 옮긴다. 다른 가구를 고르거나 선택을 풀면 꺼진다.
   let touchMove = false;
   function setTouchMove(on) { touchMove = on; $('moveBtn').setAttribute('aria-pressed', String(on)); }
