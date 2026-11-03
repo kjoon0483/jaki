@@ -9,7 +9,7 @@ import { useTheme } from '@/hooks/use-theme';
 const TAB_ITEMS = [
   { name: 'index', href: '/', label: '홈', icon: 'home-outline' },
   { name: 'budget', href: '/budget', label: '가계부', icon: 'wallet-outline' },
-  { name: 'room', href: '/room', label: '3D 배치', icon: 'cube-outline' },
+  { name: 'room', href: '/room', label: '방 꾸미기', icon: 'cube-outline' },
   { name: 'community', href: '/community', label: '커뮤니티', icon: 'people-outline' },
   { name: 'mypage', href: '/mypage', label: '마이', icon: 'person-outline' },
 ] as const;

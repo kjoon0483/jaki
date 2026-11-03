@@ -1,0 +1,1450 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D 방 구현 사용 가이드</title>
+<meta name="description" content="3D 방 구현 기능을 애니메이션으로 배우는 사용 가이드. 챕터를 고르고, 음성 설명을 들을 수 있어요.">
+<style>
+  :root {
+    --bg: #EAF2F7; --panel: #FFFFFF; --ink: #14232E; --muted: #52646F; --line: #BCD3E2;
+    --accent: #0B6FA4; --accent-ink: #FFFFFF; --soft: #DCEBF5; --stagebg: #DCE9F1; --danger: #A83A34;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B1217; --panel: #18232B; --ink: #EAF2F7; --muted: #A6B6C0; --line: #2C3F4C;
+      --accent: #7FBCE3; --accent-ink: #0B141A; --soft: #20323E; --stagebg: #0F171D; --danger: #D4837A;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .page { max-width: 1080px; margin: 0 auto; padding: 12px 16px 48px; }
+  header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 6px; }
+  h1 { font-size: clamp(19px, 3.6vw, 28px); margin: 0; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+  .try {
+    flex: none; background: var(--accent); color: var(--accent-ink); text-decoration: none; font-weight: 700;
+    padding: 10px 16px; border-radius: 999px; font-size: 14px; white-space: nowrap;
+  }
+  .try:hover { filter: brightness(1.08); }
+
+  #chapters { position: relative; display: flex; gap: 8px; overflow-x: auto; padding: 8px 0 12px; scrollbar-width: thin; }
+  .chip {
+    flex: none; display: flex; align-items: center; gap: 7px; padding: 8px 14px 8px 8px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel); font-size: 14px; white-space: nowrap;
+  }
+  .chip .n {
+    width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700;
+    background: var(--soft); color: var(--accent);
+  }
+  .chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+  .chip.on .n { background: rgba(255,255,255,.22); color: inherit; }
+
+  #stageWrap {
+    position: relative; width: 100%; overflow: hidden; border-radius: 18px; border: 1px solid var(--line);
+    background: var(--stagebg); box-shadow: 0 6px 24px rgba(10, 40, 60, .10);
+  }
+  #stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; font-size: 12.5px; color: var(--ink); user-select: none; }
+  #cv { position: absolute; left: 0; top: 0; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 3px 14px rgba(10,40,60,.14); }
+  .b {
+    border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 4px 8px; font-size: 12px;
+    line-height: 1.25; pointer-events: none; color: var(--ink); white-space: nowrap;
+  }
+  .b.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .b.pri { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+  .b.dng { color: var(--danger); }
+  .b.sm { padding: 2px 6px; }
+  .b.pr { animation: pr .5s ease; }
+  .hl { outline: 2px solid var(--accent); outline-offset: 2px; animation: hl 0.9s ease-in-out infinite; }
+  @keyframes pr { 0% { transform: scale(1); } 40% { transform: scale(.9); } 100% { transform: scale(1); } }
+  @keyframes hl { 50% { outline-color: transparent; } }
+
+  #vbtns { position: absolute; right: 14px; top: 14px; display: flex; gap: 6px; padding: 6px; opacity: 0; transition: opacity .4s; }
+  #vbtns.vis, #panel.vis, #selbar.vis, #walkhud.vis { opacity: 1; }
+  #vbtns .b { font-size: 13px; padding: 6px 11px; }
+
+  #panel { position: absolute; left: 14px; top: 14px; width: 258px; padding: 10px; opacity: 0; transition: opacity .4s; }
+  .phead { font-weight: 700; font-size: 13.5px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: baseline; }
+  .phead small { font-weight: 400; color: var(--muted); font-size: 11.5px; }
+  .ptabs { display: flex; gap: 3px; margin-bottom: 8px; }
+  .ptabs .b { flex: 1; text-align: center; border-radius: 8px 8px 4px 4px; }
+  .pbody { position: relative; height: 318px; overflow: hidden; }
+  .tabp { display: none; }
+  .tabp.on { display: block; }
+  .lbl { font-size: 11px; font-weight: 700; color: var(--muted); margin: 8px 0 4px; }
+  .lbl:first-child { margin-top: 0; }
+  .row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+  .grid2 .b { text-align: center; padding: 4px 2px; }
+  .hint { font-size: 11px; color: var(--muted); margin: 6px 0; line-height: 1.4; min-height: 30px; }
+  .sel { flex: 1; display: flex; justify-content: space-between; border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; background: var(--panel); }
+  .sel em { font-style: normal; color: var(--muted); }
+  .menu { display: none; position: absolute; left: 0; top: 54px; width: 168px; z-index: 5; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+  .menu.show { display: block; }
+  .menu div { padding: 4px 8px; border-radius: 6px; }
+  .menu div.hov { background: var(--soft); color: var(--accent); font-weight: 700; }
+  .num { display: inline-block; min-width: 46px; text-align: center; border: 1px solid var(--line); border-radius: 6px; padding: 2px 4px; background: var(--bg); font-variant-numeric: tabular-nums; }
+  .sl { position: relative; flex: 1; height: 8px; border-radius: 4px; background: var(--line); min-width: 60px; }
+  .sl b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--accent); }
+  .sl i { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--panel); border: 3px solid var(--accent); }
+  .srow { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; font-size: 11.5px; }
+  .srow label { width: 38px; color: var(--muted); }
+  .srow output { width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .sw { display: inline-block; width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--line); margin: 0 3px 3px 0; }
+  .sw.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--soft); }
+  .note { font-size: 11px; color: var(--muted); }
+  #loftOpts { display: none; }
+  #loftOpts.show { display: block; }
+
+  #selbar { position: absolute; left: 50%; bottom: 14px; transform: translateX(-30%); width: 560px; padding: 8px 12px; opacity: 0; transition: opacity .35s; pointer-events: none; }
+  #selbar .r1, #selbar .r2, #selbar .r3 { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+  #selbar .r3 { margin-bottom: 0; }
+  #selbar label { color: var(--muted); font-size: 11.5px; }
+  #selbar output { font-variant-numeric: tabular-nums; min-width: 34px; }
+  #selbar .sp { flex: 1; }
+  #selName { font-size: 14px; }
+  #selSize { color: var(--muted); font-size: 11.5px; }
+  .sws { display: flex; gap: 4px; margin-left: 2px; }
+  .sws .sw { margin: 0; width: 20px; height: 20px; }
+
+  #cursor { position: absolute; left: 0; top: 0; width: 28px; height: 28px; pointer-events: none; opacity: 0; z-index: 30; will-change: transform; }
+  #cursor svg { width: 26px; height: 26px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); transition: transform .08s; transform-origin: 3px 3px; }
+  #cursor.down svg { transform: scale(.85); }
+  #cursor span { position: absolute; left: 22px; top: 22px; background: #1E2A31; color: #fff; border-radius: 6px; padding: 2px 7px; font-size: 11.5px; white-space: nowrap; opacity: 0; transition: opacity .2s; }
+  #cursor span.show { opacity: .94; }
+  .rip { position: absolute; left: 0; top: 0; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; border: 3px solid var(--accent); pointer-events: none; z-index: 29; }
+
+  .tip {
+    position: absolute; z-index: 25; background: #14232E; color: #fff; padding: 6px 11px; border-radius: 10px; font-size: 13px;
+    font-weight: 600; white-space: nowrap; pointer-events: none; box-shadow: 0 3px 10px rgba(0,0,0,.25); opacity: 0;
+  }
+  @media (prefers-color-scheme: dark) { .tip { background: #EAF2F7; color: #14232E; } }
+  .big { position: absolute; left: 36px; top: 36px; z-index: 22; pointer-events: none; opacity: 0; }
+  .big.right { left: auto; right: 36px; text-align: right; }
+  .big h3 { margin: 0; font-size: 34px; line-height: 1.25; letter-spacing: -0.02em; white-space: pre-line; text-shadow: 0 2px 12px var(--stagebg); }
+  .big p { margin: 8px 0 0; color: var(--muted); font-size: 15px; font-weight: 600; text-shadow: 0 2px 10px var(--stagebg); }
+  .chips { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 6px; z-index: 20; flex-wrap: wrap; justify-content: center; width: 90%; }
+  .chips span { background: var(--panel); border: 1px solid var(--line); color: var(--accent); font-weight: 700; padding: 5px 11px; border-radius: 999px; font-size: 13px; opacity: 0; }
+
+  #keys { position: absolute; left: 292px; bottom: 16px; z-index: 20; display: none; gap: 5px; align-items: flex-end; }
+  #keys.show { display: flex; }
+  #keys .grp { display: flex; gap: 4px; }
+  .kc { min-width: 32px; height: 32px; padding: 0 8px; display: grid; place-items: center; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); border-bottom-width: 3px; font-weight: 700; font-size: 13px; }
+  .kc.dn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); transform: translateY(2px); border-bottom-width: 1px; }
+  .kl { font-size: 12px; color: var(--muted); align-self: center; margin: 0 6px 0 2px; font-weight: 600; }
+
+  #walkhud { position: absolute; inset: 0; opacity: 0; transition: opacity .35s; pointer-events: none; z-index: 18; }
+  #walkhud .cross { position: absolute; left: 50%; top: 50%; width: 20px; height: 20px; margin: -10px 0 0 -10px; }
+  #walkhud .cross:before, #walkhud .cross:after { content: ""; position: absolute; background: #fff; box-shadow: 0 0 3px rgba(0,0,0,.6); }
+  #walkhud .cross:before { left: 9px; top: 0; width: 2px; height: 20px; }
+  #walkhud .cross:after { top: 9px; left: 0; height: 2px; width: 20px; }
+  #walkhud .cross.y:before, #walkhud .cross.y:after { background: #FFD54A; }
+  #walkTop { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); padding: 7px 14px; font-size: 12.5px; white-space: nowrap; }
+  #walkPrompt { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); background: rgba(20,35,46,.88); color: #fff; padding: 8px 16px; border-radius: 999px; font-weight: 700; font-size: 14px; opacity: 0; }
+  #pad { position: absolute; left: 20px; bottom: 20px; display: none; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(2, 40px); gap: 5px; }
+  #pad.show { display: grid; }
+  #pad .kc { width: 40px; height: 40px; font-size: 16px; opacity: .9; }
+  #pad .kc:nth-child(1) { grid-column: 2; }
+  #pad .kc.e { grid-column: 3; grid-row: 1; }
+  #toast { position: absolute; right: 16px; top: 62px; z-index: 24; background: #1E7A4B; color: #fff; padding: 6px 12px; border-radius: 10px; font-weight: 700; font-size: 13px; opacity: 0; pointer-events: none; }
+  .fileico { position: absolute; z-index: 26; padding: 6px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--accent); color: var(--accent); font-weight: 700; font-size: 12px; opacity: 0; pointer-events: none; }
+  #endcard { position: absolute; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(10, 30, 45, .45); text-align: center; }
+  #endcard.show { display: grid; }
+  #endcard .card { padding: 26px 34px; }
+  #endcard h3 { margin: 0 0 6px; font-size: 26px; }
+  #endcard p { margin: 0 0 16px; color: var(--muted); }
+  #endcard a, #endcard button { display: inline-block; margin: 4px; padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 15px; border: 1px solid var(--accent); text-decoration: none; background: var(--panel); color: var(--accent); }
+  #endcard a.pri { background: var(--accent); color: var(--accent-ink); }
+
+  #stage.compact { font-size: 11.5px; }
+  #stage.compact #panel { width: 196px; padding: 8px; }
+  #stage.compact .pbody { height: 268px; }
+  #stage.compact .menu { width: 150px; top: 50px; }
+  #stage.compact #vbtns .b { font-size: 11px; padding: 5px 7px; }
+  #stage.compact #selbar { width: 400px; transform: translateX(-50%); left: 50%; }
+  #stage.compact .big h3 { font-size: 26px; }
+  #stage.compact #keys { left: 14px; bottom: 74px; }
+  #stage.compact #walkTop { white-space: normal; width: 90%; text-align: center; }
+
+  .caption { margin: 16px 2px 10px; min-height: 120px; }
+  .capmeta { color: var(--accent); font-weight: 700; font-size: 14px; }
+  .caption h2 { margin: 2px 0 8px; font-size: clamp(20px, 3.4vw, 26px); letter-spacing: -0.02em; }
+  .caption p { margin: 0; font-size: clamp(16px, 2.4vw, 19px); line-height: 1.75; color: var(--ink); word-break: keep-all; }
+  .caption p .s { border-radius: 6px; padding: 1px 2px; transition: background .2s; }
+  .caption p .s.on { background: var(--soft); box-shadow: 0 0 0 3px var(--soft); }
+
+  .controls { display: flex; flex-direction: column; gap: 10px; }
+  .tr { display: flex; align-items: center; gap: 8px; }
+  .ib {
+    width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel);
+    display: grid; place-items: center; flex: none;
+  }
+  .ib.pri { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); width: 48px; height: 48px; }
+  .ib svg { width: 20px; height: 20px; fill: currentColor; }
+  #segs { flex: 1; display: flex; gap: 5px; min-width: 0; }
+  .seg { flex: 1; height: 10px; border-radius: 5px; background: var(--line); border: 0; padding: 0; position: relative; overflow: hidden; }
+  .seg i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--accent); }
+  .seg.done i { width: 100%; }
+  #sceneNo { color: var(--muted); font-size: 13px; flex: none; font-variant-numeric: tabular-nums; }
+  .vr { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .voice {
+    display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 999px; font-weight: 700;
+    font-size: 15px; border: 2px solid var(--accent); background: var(--panel); color: var(--accent);
+  }
+  .voice.on { background: var(--accent); color: var(--accent-ink); }
+  .voice svg { width: 20px; height: 20px; fill: currentColor; }
+  details.vset { font-size: 14px; color: var(--muted); }
+  details.vset summary { cursor: pointer; padding: 6px 2px; }
+  .vset .fields { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding: 6px 0; }
+  .vset select, .vset input { font: inherit; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; max-width: 100%; }
+  .vmsg { font-size: 13px; color: var(--muted); margin: 0; }
+  footer { margin-top: 28px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+  footer a { color: var(--accent); font-weight: 700; }
+  @media (max-width: 560px) {
+    .try { padding: 9px 12px; font-size: 13px; }
+    header.top { align-items: flex-start; }
+  }
+  @media (prefers-reduced-motion: reduce) { .hl { animation: none; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div>
+      <h1>3D 방 구현 사용 가이드</h1>
+      <p class="sub">애니메이션으로 따라 보세요. 챕터를 골라 건너뛰고, 음성 버튼을 누르면 설명을 읽어 줘요.</p>
+    </div>
+    <a class="try" href="sim.html">3D 직접 해보기 →</a>
+  </header>
+
+  <nav id="chapters" aria-label="챕터 선택"></nav>
+
+  <div id="stageWrap">
+    <div id="stage">
+      <canvas id="cv"></canvas>
+      <div id="ui"></div>
+      <div id="walkhud">
+        <div class="cross" id="cross"></div>
+        <div class="card" id="walkTop"><b>1인칭 둘러보기</b> · WASD 걷기 · Shift 달리기 · E 문 열기 · Esc 두 번 나가기</div>
+        <div id="walkPrompt"></div>
+        <div id="pad"><div class="kc">▲</div><div class="kc">◀</div><div class="kc">▼</div><div class="kc">▶</div><div class="kc e">E</div></div>
+      </div>
+      <div id="keys"></div>
+      <div id="toast"></div>
+      <div id="cursor"><svg viewBox="0 0 24 24"><path d="M3 2 L3 19 L8 14.5 L11.5 22 L14.5 20.6 L11.2 13.3 L18 13 Z" fill="#fff" stroke="#14232E" stroke-width="1.6" stroke-linejoin="round"/></svg><span id="curBadge"></span></div>
+      <div id="endcard"><div class="card"><h3>이제 직접 꾸며 보세요!</h3><p>로그인 없이 3D 시뮬레이션만 바로 해볼 수 있어요.</p><a class="pri" href="sim.html">3D 직접 해보기</a><button id="again">처음부터 다시 보기</button></div></div>
+    </div>
+  </div>
+
+  <section class="caption" aria-live="polite">
+    <div class="capmeta" id="capMeta"></div>
+    <h2 id="capTitle"></h2>
+    <p id="capText"></p>
+  </section>
+
+  <div class="controls">
+    <div class="tr">
+      <button class="ib" id="bPrev" aria-label="이전 장면"><svg viewBox="0 0 24 24"><path d="M6 5h2.5v14H6zM20 5v14L9.5 12z"/></svg></button>
+      <button class="ib pri" id="bPlay" aria-label="일시정지"></button>
+      <button class="ib" id="bNext" aria-label="다음 장면"><svg viewBox="0 0 24 24"><path d="M15.5 5H18v14h-2.5zM4 5l10.5 7L4 19z"/></svg></button>
+      <div id="segs"></div>
+      <span id="sceneNo"></span>
+    </div>
+    <div class="vr">
+      <button class="voice" id="bVoice" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg><span id="voiceTxt">음성으로 듣기</span></button>
+      <details class="vset">
+        <summary>음성 설정</summary>
+        <div class="fields">
+          <label>목소리 <select id="voiceSel"></select></label>
+          <label>속도 <input type="range" id="rate" min="0.7" max="1.4" step="0.05" value="1"> <span id="rateTx">1.0×</span></label>
+        </div>
+        <p class="vmsg" id="vmsg"></p>
+      </details>
+    </div>
+  </div>
+
+  <footer>
+    <p>키보드: <b>←</b> <b>→</b> 이전·다음 장면, <b>Space</b> 재생·일시정지. 음성은 이 기기(브라우저)에 들어 있는 한국어 목소리로 읽어 줘요.
+    직접 해보고 싶다면 <a href="sim.html">3D 직접 해보기</a>로 바로 들어가세요.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+'use strict';
+var D2R = Math.PI / 180;
+var $ = function (id) { return document.getElementById(id); };
+var stage = $('stage'), wrap = $('stageWrap'), cv = $('cv'), ctx = cv.getContext('2d'), uiBox = $('ui');
+var W2 = 960, H2 = 540, scale = 1, compact = false, VCX = 600, VCY = 300, camK = 1, DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+/* ---------- 작은 수학 / 색 ---------- */
+function add(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+function nrm(a) { var l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function hex(h) { var n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function mix(a, b, t) { return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]; }
+function css(c, k, a) {
+  k = k == null ? 1 : k;
+  return 'rgba(' + Math.min(255, Math.round(c[0] * k)) + ',' + Math.min(255, Math.round(c[1] * k)) + ',' + Math.min(255, Math.round(c[2] * k)) + ',' + (a == null ? 1 : a) + ')';
+}
+var eIO = function (t) { return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; };
+var eOut = function (t) { return 1 - Math.pow(1 - t, 3); };
+var eLin = function (t) { return t; };
+var eBounce = function (t) {
+  var n = 7.5625, d = 2.75;
+  if (t < 1 / d) return n * t * t;
+  if (t < 2 / d) return n * (t -= 1.5 / d) * t + .75;
+  if (t < 2.5 / d) return n * (t -= 2.25 / d) * t + .9375;
+  return n * (t -= 2.625 / d) * t + .984375;
+};
+
+/* ---------- 색 / 가구 ---------- */
+var C = {
+  wood: hex('#B88A5B'), wood2: hex('#8E6A47'), dark: hex('#2F363E'), white: hex('#F3F0E8'), blue: hex('#6C94C2'),
+  green: hex('#5E9E5A'), green2: hex('#7DB86F'), terra: hex('#C27A52'), sofa: hex('#7C8FA6'), ward: hex('#D8CBB4'),
+  ward2: hex('#E8DDCB'), rug: hex('#E8C9A8'), lamp: hex('#FFE7A8'), glow: hex('#9CC8F5'), door: hex('#A47551'),
+  cap: hex('#D5DADD'), hall: hex('#DDE3E6'), slab: hex('#8D949A')
+};
+var KINDS = {
+  bed: { n: '침대', w: 100, d: 200, h: 80, parts: function (it) {
+    var w = it.w, d = it.d, c = it.c || C.blue;
+    return [
+      { y0: 0, h: 28, w: w, d: d, c: C.wood2 },
+      { y0: 28, h: 16, w: w - 6, d: d - 6, c: C.white },
+      { y0: 44, h: 7, w: w - 8, d: d * .6, dz: d * .17, c: c },
+      { y0: 44, h: 10, w: w * .72, d: 30, dz: -(d / 2 - 26), c: C.white },
+      { y0: 28, h: 52, w: w, d: 6, dz: -(d / 2 - 3), c: C.wood }];
+  } },
+  desk: { n: '책상', w: 120, d: 60, h: 75, parts: function (it) {
+    var w = it.w, d = it.d, L = [{ y0: 70, h: 4, w: w, d: d, c: C.wood }];
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (s) { L.push({ y0: 0, h: 70, w: 5, d: 5, dx: s[0] * (w / 2 - 5), dz: s[1] * (d / 2 - 5), c: C.wood2 }); });
+    return L;
+  } },
+  wardrobe: { n: '옷장', w: 90, d: 55, h: 200, parts: function (it) {
+    var c = it.c || C.ward;
+    return [
+      { y0: 0, h: 200, w: it.w, d: it.d, c: c },
+      { y0: 8, h: 184, w: it.w / 2 - 4, d: 1.5, dx: -it.w / 4, dz: it.d / 2 + .5, c: C.ward2 },
+      { y0: 8, h: 184, w: it.w / 2 - 4, d: 1.5, dx: it.w / 4, dz: it.d / 2 + .5, c: C.ward2 },
+      { y0: 95, h: 16, w: 3, d: 3, dx: -5, dz: it.d / 2 + 2, c: C.dark },
+      { y0: 95, h: 16, w: 3, d: 3, dx: 5, dz: it.d / 2 + 2, c: C.dark }];
+  } },
+  sofa: { n: '소파', w: 180, d: 85, h: 82, parts: function (it) {
+    var w = it.w, d = it.d, c = it.c || C.sofa, dk = mix(c, [0, 0, 0], .12), lt = mix(c, [255, 255, 255], .18);
+    return [
+      { y0: 0, h: 38, w: w, d: d, c: c },
+      { y0: 38, h: 44, w: w, d: 20, dz: -(d / 2 - 10), c: c },
+      { y0: 38, h: 22, w: 16, d: d - 20, dx: -(w / 2 - 8), dz: 10, c: dk },
+      { y0: 38, h: 22, w: 16, d: d - 20, dx: (w / 2 - 8), dz: 10, c: dk },
+      { y0: 38, h: 8, w: w - 40, d: d - 28, dz: 12, c: lt }];
+  } },
+  plant: { n: '화분', w: 30, d: 30, h: 85, parts: function () {
+    return [
+      { y0: 0, h: 22, w: 24, d: 24, c: C.terra },
+      { y0: 22, h: 48, w: 36, d: 36, c: C.green },
+      { y0: 70, h: 15, w: 22, d: 22, c: C.green2 }];
+  } },
+  rug: { n: '러그', w: 180, d: 120, h: 2, flat: 1, parts: function (it) {
+    return [{ y0: 0, h: 1.6, w: it.w, d: it.d, c: it.c || C.rug }];
+  } },
+  monitor: { n: '모니터', w: 52, d: 16, h: 45, parts: function () {
+    return [
+      { y0: 0, h: 2, w: 24, d: 14, c: C.dark },
+      { y0: 2, h: 13, w: 5, d: 4, c: C.dark },
+      { y0: 15, h: 30, w: 52, d: 3, c: C.dark },
+      { y0: 17, h: 26, w: 48, d: .6, dz: 1.8, c: C.glow, e: 1 }];
+  } },
+  lamp: { n: '무드등', w: 14, d: 14, h: 20, parts: function () {
+    return [
+      { y0: 0, h: 3, w: 14, d: 14, c: C.dark },
+      { y0: 3, h: 15, w: 10, d: 10, c: C.lamp, e: 1 }];
+  } },
+  wallseg: { n: '벽', w: 10, d: 10, h: 240, noShadow: 1, parts: function (it) {
+    var H = S.room.H;
+    return [{ y0: 0, h: H, w: it.len, d: 10, dx: it.len / 2, c: S.room.wall, topc: C.cap }];
+  } },
+  miniroom: { n: '방', w: 10, d: 10, h: 240, noShadow: 1, parts: function (it) {
+    var w = it.w, d = it.d, H = S.room.H, t = 8, c = S.room.wall, gap = 64, L = [];
+    if (w < 6 || d < 6) return L;
+    L.push({ y0: 0, h: H, w: w, d: t, dx: w / 2, dz: 0, c: c, topc: C.cap });
+    L.push({ y0: 0, h: H, w: w, d: t, dx: w / 2, dz: d, c: c, topc: C.cap });
+    L.push({ y0: 0, h: H, w: t, d: d, dx: w, dz: d / 2, c: c, topc: C.cap });
+    var seg = Math.max(0, (d - gap) / 2);
+    L.push({ y0: 0, h: H, w: t, d: seg, dx: 0, dz: seg / 2, c: c, topc: C.cap });
+    L.push({ y0: 0, h: H, w: t, d: seg, dx: 0, dz: d - seg / 2, c: c, topc: C.cap });
+    L.push({ y0: 0, h: 205, w: 3, d: gap - 4, dx: 0, dz: d / 2, c: C.door });
+    return L;
+  } }
+};
+function mk(kind, x, z, o) {
+  var K = KINDS[kind];
+  return Object.assign({ k: kind, x: x, z: z, rot: 0, w: K.w, d: K.d, lift: 0, dy: 0, drop: 0, alpha: 1, c: null, sel: 0, len: 0 }, o || {});
+}
+function baseItems() {
+  return [mk('wardrobe', 48, 32), mk('desk', 165, 32), mk('monitor', 165, 30, { lift: 74 }), mk('bed', 350, 112), mk('rug', 230, 235), mk('plant', 30, 320)];
+}
+
+/* ---------- 상태 ---------- */
+var S = { T: 0, room: null, items: [], cam: null, cur: null, sel: null, handles: null, follow: null, scroll: 0, mode: 'move' };
+var tweens = [], pend = [], fx = [];
+function roomDefaults() {
+  return {
+    W: 420, D: 360, H: 240, cut: 0, floor: hex('#C9A57A'), wall: hex('#EDE6DA'), curt: hex('#9DB8D3'), curtOpen: .85, doorC: C.door,
+    win: { c: 230, w: 160, h: 130, sill: 90 }, doorOpen: 0, scenery: 'han', hour: 10, season: 'spring', fl: 14, light: 0,
+    loft: 0, loftDepth: 200, loftY: 210, stairs: 1
+  };
+}
+function camDefault() { return { t: [210, 60, 180], yaw: -30, pitch: 38, dist: 720, fov: 40 }; }
+function tw(o, k, to, ms, delay, ease) {
+  tweens.push({ o: o, k: k, to: to, ms: ms, ease: ease || eIO, st: S.T + (delay || 0), from: null });
+}
+function at(ms, fn) { pend.push({ t: ms, fn: fn }); }
+function later(ms, fn) { pend.push({ t: S.T + ms, fn: fn }); }
+function stepTweens() {
+  var done = false;
+  for (var i = 0; i < tweens.length; i++) {
+    var w = tweens[i];
+    if (S.T < w.st) continue;
+    if (w.from === null) w.from = Array.isArray(w.o[w.k]) ? w.o[w.k].slice() : w.o[w.k];
+    var p = w.ms <= 0 ? 1 : Math.min(1, (S.T - w.st) / w.ms), e = w.ease(p);
+    if (Array.isArray(w.from)) w.o[w.k] = w.from.map(function (f, j) { return f + (w.to[j] - f) * e; });
+    else w.o[w.k] = w.from + (w.to - w.from) * e;
+    if (p >= 1) { w.dead = true; done = true; }
+  }
+  if (done) tweens = tweens.filter(function (w) { return !w.dead; });
+}
+function stepPend() {
+  var ready = pend.filter(function (p) { return p.t <= S.T; });
+  if (!ready.length) return;
+  pend = pend.filter(function (p) { return p.t > S.T; });
+  ready.sort(function (a, b) { return a.t - b.t; });
+  ready.forEach(function (p) { p.fn(); });
+}
+function stepFx() {
+  fx = fx.filter(function (f) {
+    var p = (S.T - f.st) / f.ms;
+    if (p < 0) return true;
+    if (p >= 1) { if (f.el && f.rm !== false) f.el.remove(); if (f.end) f.end(); return false; }
+    f.f(p);
+    return true;
+  });
+}
+
+/* ---------- 화면 UI 조작 도구 ---------- */
+function G(g) { return stage.querySelector('[data-g="' + g + '"]'); }
+function rectOf(el) {
+  var r = el.getBoundingClientRect(), s = stage.getBoundingClientRect();
+  return { x: (r.left - s.left) / scale, y: (r.top - s.top) / scale, w: r.width / scale, h: r.height / scale };
+}
+function ctr(g) { var el = G(g); if (!el) return [480, 300]; var r = rectOf(el); return [r.x + r.w / 2, r.y + r.h / 2]; }
+function curTo(x, y, ms, delay) { tw(S.cur, 'x', x, ms == null ? 800 : ms, delay); tw(S.cur, 'y', y, ms == null ? 800 : ms, delay); }
+function curEl(g, ms) { var c = ctr(g); curTo(c[0], c[1], ms); }
+function curShow(on) { tw(S.cur, 'vis', on ? 1 : 0, 300); }
+function badge(t) {
+  var b = $('curBadge');
+  b.textContent = t || '';
+  b.classList.toggle('show', !!t);
+}
+function ripple() {
+  var el = document.createElement('div'), x = S.cur.x, y = S.cur.y;
+  el.className = 'rip'; el.style.left = x + 'px'; el.style.top = y + 'px';
+  stage.appendChild(el);
+  fx.push({ el: el, st: S.T, ms: 520, f: function (p) { el.style.transform = 'scale(' + (.4 + p * 1.1) + ')'; el.style.opacity = 1 - p; } });
+}
+function click() { S.cur.down = 1; ripple(); later(130, function () { S.cur.down = 0; }); }
+function press(g) {
+  var el = G(g); if (!el) return;
+  var grp = el.dataset.grp;
+  if (grp) stage.querySelectorAll('[data-grp="' + grp + '"]').forEach(function (e) { e.classList.toggle('on', e === el); });
+  else if (el.dataset.tg) el.classList.toggle('on');
+  el.classList.remove('pr'); void el.offsetWidth; el.classList.add('pr');
+  later(500, function () { el.classList.remove('pr'); });
+}
+function ce(g, t0, fn, move) {
+  move = move == null ? 800 : move;
+  at(t0, function () { curEl(g, move); });
+  at(t0 + move + 150, function () { click(); press(g); if (fn) fn(); });
+  return t0 + move + 150;
+}
+function hl(g, ms) {
+  var el = G(g); if (!el) return;
+  el.classList.add('hl'); later(ms || 1400, function () { el.classList.remove('hl'); });
+}
+function tip(text, x, y, ms, anchor) {
+  var el = document.createElement('div');
+  el.className = 'tip'; el.textContent = text;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  el.style.transform = anchor === 'l' ? 'translate(-100%,-50%)' : anchor === 'r' ? 'translate(0,-50%)' : anchor === 't' ? 'translate(-50%,-100%)' : 'translate(-50%,0)';
+  stage.appendChild(el);
+  ms = ms || 2600;
+  fx.push({ el: el, st: S.T, ms: ms, f: function (p) { var a = Math.min(1, p * ms / 260, (1 - p) * ms / 260); el.style.opacity = a; } });
+}
+function tipEl(g, text, side, ms) {
+  var el = G(g); if (!el) return;
+  var r = rectOf(el);
+  if (side === 'r') tip(text, r.x + r.w + 10, r.y + r.h / 2, ms, 'r');
+  else if (side === 'l') tip(text, r.x - 10, r.y + r.h / 2, ms, 'l');
+  else if (side === 't') tip(text, r.x + r.w / 2, r.y - 8, ms, 't');
+  else tip(text, r.x + r.w / 2, r.y + r.h + 8, ms, 'c');
+}
+function tipW(p, text, ms, anchor) { var s = proj(p); tip(text, s[0], s[1], ms, anchor || 't'); }
+function big(title, sub, right, delay, ms) {
+  var el = document.createElement('div');
+  el.className = 'big' + (right ? ' right' : '');
+  el.innerHTML = '<h3></h3><p></p>';
+  el.firstChild.textContent = title; el.lastChild.textContent = sub || '';
+  stage.appendChild(el);
+  ms = ms || 6000;
+  fx.push({ el: el, st: S.T + (delay || 0), ms: ms, f: function (p) { var a = Math.min(1, p * ms / 500, (1 - p) * ms / 500); el.style.opacity = a; el.style.transform = 'translateY(' + (1 - Math.min(1, p * ms / 500)) * 12 + 'px)'; } });
+}
+function chips(list, t0, gap) {
+  var box = document.createElement('div');
+  box.className = 'chips'; stage.appendChild(box);
+  var spans = list.map(function (t) { var s = document.createElement('span'); s.textContent = t; box.appendChild(s); return s; });
+  spans.forEach(function (s, i) {
+    fx.push({ el: s, rm: false, st: t0 + i * gap, ms: 450, f: function (p) { s.style.opacity = p; }, end: function () { s.style.opacity = 1; } });
+  });
+  fx.push({ el: box, st: 0, ms: 1e9, f: function () {}, });
+}
+function toast(t, ms) {
+  var el = $('toast');
+  el.textContent = t;
+  fx.push({ el: el, rm: false, st: S.T, ms: ms || 2200, f: function (p) { el.style.opacity = Math.min(1, p * 8, (1 - p) * 8); }, end: function () { el.style.opacity = 0; } });
+}
+function show(id, on) { $(id).classList.toggle('vis', !!on); }
+function tab(name) {
+  stage.querySelectorAll('.ptabs .b').forEach(function (b) { b.classList.toggle('on', b.dataset.g === 'tab-' + name); });
+  stage.querySelectorAll('.tabp').forEach(function (p) { p.classList.toggle('on', p.dataset.tabp === name); });
+  S.scroll = 0;
+}
+function scrollTo(g, ms) {
+  var el = G(g), body = stage.querySelector('.pbody');
+  if (!el) return;
+  var y = 0, n = el;
+  while (n && n !== body) { y += n.offsetTop; n = n.offsetParent; }
+  tw(S, 'scroll', Math.max(0, y - 4), ms == null ? 600 : ms);
+}
+function keysShow(list) {
+  var k = $('keys');
+  k.innerHTML = '';
+  list.forEach(function (g) {
+    var d = document.createElement('div');
+    if (g.label) { d.className = 'kl'; d.textContent = g.label; }
+    else { d.className = 'grp'; g.keys.forEach(function (n) { var c = document.createElement('div'); c.className = 'kc'; c.dataset.k = n; c.textContent = n; d.appendChild(c); }); }
+    k.appendChild(d);
+  });
+  k.classList.add('show');
+}
+function keyDn(n, on) { var e = stage.querySelector('#keys .kc[data-k="' + n + '"]'); if (e) e.classList.toggle('dn', !!on); }
+function keyTap(n, t0, ms) { at(t0, function () { keyDn(n, 1); }); at(t0 + (ms || 700), function () { keyDn(n, 0); }); }
+function mode(g, text) {
+  press(g);
+  var h = $('modeHint'); if (h) h.textContent = text || '';
+}
+function setPrompt(t) {
+  var el = $('walkPrompt');
+  el.textContent = t || '';
+  el.style.opacity = t ? 1 : 0;
+  $('cross').classList.toggle('y', !!t);
+}
+
+/* ---------- 카메라 / 투영 ---------- */
+function camSetup() {
+  var c = S.cam, cp = Math.cos(c.pitch * D2R), sp = Math.sin(c.pitch * D2R), dist = c.dist * (c.dist > 5 ? camK : 1);
+  var dir = [Math.sin(c.yaw * D2R) * cp, sp, Math.cos(c.yaw * D2R) * cp];
+  var e = [c.t[0] + dir[0] * dist, c.t[1] + dir[1] * dist, c.t[2] + dir[2] * dist];
+  var f = nrm(sub(c.t, e)), r = nrm(cross(f, [0, 1, 0])), u = cross(r, f);
+  return { e: e, f: f, r: r, u: u, focal: (H2 / 2) / Math.tan(c.fov * D2R / 2) };
+}
+function proj(p) {
+  var cam = camSetup(), d = sub(p, cam.e), z = dot(d, cam.f) || .001;
+  return [VCX + cam.focal * dot(d, cam.r) / z, VCY - cam.focal * dot(d, cam.u) / z];
+}
+function fpsCam(E, hd, up) {
+  var f = [Math.sin(hd * D2R), 0, -Math.cos(hd * D2R)];
+  return { t: [E[0] + f[0], E[1], E[2] + f[2]], yaw: -hd, pitch: -(up || 0), dist: 1, fov: 72 };
+}
+function camTo(o, ms, delay, ease) { Object.keys(o).forEach(function (k) { tw(S.cam, k, o[k], ms, delay, ease); }); }
+var NEAR = 3;
+function projFace(pts, cam) {
+  var c = pts.map(function (p) { var d = sub(p, cam.e); return [dot(d, cam.r), dot(d, cam.u), dot(d, cam.f)]; }), out = [], n = c.length;
+  for (var i = 0; i < n; i++) {
+    var a = c[i], b = c[(i + 1) % n], ia = a[2] >= NEAR, ib = b[2] >= NEAR;
+    if (ia) out.push(a);
+    if (ia !== ib) { var t = (NEAR - a[2]) / (b[2] - a[2]); out.push([lerp(a[0], b[0], t), lerp(a[1], b[1], t), NEAR]); }
+  }
+  if (out.length < 3) return null;
+  return out.map(function (q) { return [VCX + cam.focal * q[0] / q[2], VCY - cam.focal * q[1] / q[2]]; });
+}
+
+/* ---------- 장면 그리기 ---------- */
+function skyColors(h) {
+  var K = [[5, '#1b2447', '#e8946a'], [7, '#6fa8dc', '#fbd3a5'], [10, '#5aa9e6', '#bfe3f7'], [14, '#4a9be0', '#c9e8f8'], [17.5, '#5d8fd0', '#f9c27b'], [19, '#2e3f7c', '#f08a5d'], [20.5, '#141d45', '#5a4a7a'], [22, '#0a1030', '#1d2650']];
+  h = clamp(h, 5, 22);
+  for (var i = 0; i < K.length - 1; i++) if (h <= K[i + 1][0]) {
+    var t = (h - K[i][0]) / (K[i + 1][0] - K[i][0]);
+    return [mix(hex(K[i][1]), hex(K[i + 1][1]), t), mix(hex(K[i][2]), hex(K[i + 1][2]), t)];
+  }
+  return [hex(K[7][1]), hex(K[7][2])];
+}
+function brightness(h, light) {
+  var K = [[5, .6], [7, .85], [10, 1], [14, 1], [17, .9], [19, .72], [20.5, .52], [22, .44]];
+  h = clamp(h, 5, 22);
+  var b = .44;
+  for (var i = 0; i < K.length - 1; i++) if (h <= K[i + 1][0]) { b = lerp(K[i][1], K[i + 1][1], (h - K[i][0]) / (K[i + 1][0] - K[i][0])); break; }
+  return lerp(b, Math.max(b, .88), light);
+}
+var LDIR = nrm([-.4, .85, .45]);
+var seq = 0;
+function addBox(F, T, p, layer, a) {
+  var th = T.rot * D2R, cs = Math.cos(th), sn = Math.sin(th), dx = p.dx || 0, dz = p.dz || 0;
+  var cx = T.x + dx * cs + dz * sn, cz = T.z - dx * sn + dz * cs, hw = p.w / 2, hd = p.d / 2, y0 = (p.y0 || 0) + T.y, y1 = y0 + p.h;
+  var cor = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(function (q) { return [cx + q[0] * cs + q[1] * sn, cz - q[0] * sn + q[1] * cs]; });
+  var ns = [[0, -1], [1, 0], [0, 1], [-1, 0]].map(function (q) { return [q[0] * cs + q[1] * sn, -q[0] * sn + q[1] * cs]; });
+  for (var i = 0; i < 4; i++) {
+    var A = cor[i], B = cor[(i + 1) % 4], n = ns[i];
+    F.push({ pts: [[A[0], y0, A[1]], [B[0], y0, B[1]], [B[0], y1, B[1]], [A[0], y1, A[1]]], n: [n[0], 0, n[1]], c: p.c, e: p.e, layer: layer, a: a == null ? 1 : a, ord: seq++ });
+  }
+  F.push({ pts: cor.map(function (q) { return [q[0], y1, q[1]]; }), n: [0, 1, 0], c: p.topc || p.c, e: p.e, layer: layer, a: a == null ? 1 : a, ord: seq++ });
+}
+function quad(F, pts, n, c, layer, o) {
+  o = o || {};
+  F.push({ pts: pts, n: n, c: c, e: o.e, layer: layer, a: o.a == null ? 1 : o.a, ord: seq++ });
+}
+function wallH() { return lerp(S.room.H, 42, S.room.cut); }
+function buildFaces() {
+  var R = S.room, F = [], W = R.W, D = R.D, HW = wallH(); seq = 0;
+  var cam = S.cc;
+  // 바닥 판
+  addBox(F, { x: W / 2, z: D / 2, rot: 0, y: 0 }, { y0: -16, h: 16, w: W, d: D, c: C.slab }, 0);
+  var sw = 30, ns = Math.ceil(W / sw);
+  for (var i = 0; i < ns; i++) {
+    var x0 = i * sw, x1 = Math.min(W, x0 + sw);
+    quad(F, [[x0, 0, 0], [x1, 0, 0], [x1, 0, D], [x0, 0, D]], [0, 1, 0], mix(R.floor, [0, 0, 0], i % 2 ? .05 : 0), 0);
+  }
+  // 천장 (1인칭에서만 보인다)
+  quad(F, [[0, R.H, 0], [W, R.H, 0], [W, R.H, D], [0, R.H, D]], [0, -1, 0], hex('#E4E1DB'), 1, { e: 1 });
+  // 벽 (카메라가 안쪽에 있는 벽만)
+  var walls = [
+    { c: { x: W / 2, z: -4, rot: 0, y: 0 }, p: { w: W + 16, d: 8 }, n: [0, 0, 1], q: [W / 2, 0, 0] },
+    { c: { x: W / 2, z: D + 4, rot: 0, y: 0 }, p: { w: W + 16, d: 8 }, n: [0, 0, -1], q: [W / 2, 0, D] },
+    { c: { x: -4, z: D / 2, rot: 0, y: 0 }, p: { w: 8, d: D }, n: [1, 0, 0], q: [0, 0, D / 2] },
+    { c: { x: W + 4, z: D / 2, rot: 0, y: 0 }, p: { w: 8, d: D }, n: [-1, 0, 0], q: [W, 0, D / 2] }
+  ];
+  walls.forEach(function (w) {
+    if (dot(w.n, sub(cam.e, w.q)) <= 0) return;
+    addBox(F, w.c, { y0: 0, h: HW, w: w.p.w, d: w.p.d, c: R.wall, topc: C.cap }, 1);
+    // 걸레받이
+    var base = mix(R.wall, [0, 0, 0], .1);
+    if (w.n[2] === 1) quad(F, [[0, 0, .3], [W, 0, .3], [W, 7, .3], [0, 7, .3]], [0, 0, 1], base, 1.2);
+    if (w.n[0] === -1) quad(F, [[W - .3, 0, 0], [W - .3, 0, D], [W - .3, 7, D], [W - .3, 7, 0]], [-1, 0, 0], base, 1.2);
+    if (w.n[2] === -1) quad(F, [[0, 0, D - .3], [W, 0, D - .3], [W, 7, D - .3], [0, 7, D - .3]], [0, 0, -1], base, 1.2);
+    if (w.n[0] === 1) quad(F, [[.3, 0, 0], [.3, 0, D], [.3, 7, D], [.3, 7, 0]], [1, 0, 0], base, 1.2);
+  });
+  // 현관문 (동쪽 벽)
+  if (dot([-1, 0, 0], sub(cam.e, [W, 0, 0])) > 0) {
+    var dz0 = 245, dz1 = 325, dh = Math.min(205, HW - 2);
+    quad(F, [[W - .6, 0, dz0], [W - .6, 0, dz1], [W - .6, dh, dz1], [W - .6, dh, dz0]], [-1, 0, 0], C.hall, 1.4, { e: 1 });
+    var op = R.doorOpen;
+    if (HW > 60) addBox(F, { x: W - 2, z: dz0, rot: -88 * op, y: 0 }, { y0: 0, h: dh - 2, w: 4, d: 80, dz: 40, c: R.doorC }, 2);
+  }
+  // 창문 (북쪽 벽)
+  if (dot([0, 0, 1], sub(cam.e, [0, 0, 0])) > 0) windowFaces(F, R, HW);
+  // 복층
+  if (R.loft > .001) loftFaces(F, R);
+  // 가구
+  S.items.forEach(function (it) {
+    var K = KINDS[it.k], T = { x: it.x, z: it.z, rot: it.rot, y: it.lift + it.dy + it.drop };
+    if (!K.noShadow && !K.flat && it.alpha > .05) {
+      var th = it.rot * D2R, cs = Math.cos(th), sn = Math.sin(th), hw = it.w / 2 + 5, hd = it.d / 2 + 5;
+      var cor = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(function (q) { return [it.x + q[0] * cs + q[1] * sn, .5, it.z - q[0] * sn + q[1] * cs]; });
+      if (it.lift === 0) quad(F, cor, [0, 1, 0], [20, 30, 40], 1.1, { a: .16 * it.alpha });
+    }
+    var parts = K.parts(it), layer = K.flat ? 1.05 : 2;
+    parts.forEach(function (p) { addBox(F, T, p, layer, it.alpha); });
+  });
+  return F;
+}
+function windowFaces(F, R, HW) {
+  var w = R.win, x0 = w.c - w.w / 2, top = Math.min(w.sill + w.h, HW - 3), sill = w.sill, h = top - sill, z = .5;
+  if (h < 8) return;
+  var sc = skyColors(R.hour), night = clamp((R.hour - 19) / 2, 0, 1) + clamp((6 - R.hour) / 1.5, 0, 1), k = clamp(night, 0, 1);
+  function P(u, v) { return [x0 + u * w.w, sill + v * h, z]; }
+  function Q(u0, v0, u1, v1, col, a) { quad(F, [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)], [0, 0, 1], col, 1.5, { e: 1, a: a }); }
+  var bands = 8;
+  for (var i = 0; i < bands; i++) Q(0, i / bands, 1, (i + 1) / bands, mix(sc[1], sc[0], (i + .5) / bands), 1);
+  if (k > .3) for (var s = 0; s < 14; s++) { var su = (s * 0.0731 + .05) % 1, sv = .45 + ((s * 0.173) % .5); Q(su, sv, su + .012, sv + .02, [255, 255, 235], clamp(k, 0, 1)); }
+  var vs = lerp(1.05, .4, clamp((R.fl - 1) / 34, 0, 1)), dim = lerp(1, .5, k), seasonC = { spring: '#F2B3C6', summer: '#3E9B4C', autumn: '#D9822B', winter: '#F4F7FA' }[R.season];
+  function G2(hx, f) { return mix(hex(hx), [10, 14, 40], (1 - dim) * f); }
+  var bd = [[.02, .08, .5], [.1, .07, .72], [.18, .09, .42], [.28, .06, .8], [.35, .1, .55], [.46, .07, .68], [.54, .09, .46], [.64, .08, .86], [.73, .09, .6], [.83, .07, .74], [.9, .1, .5]];
+  function city(base, hmul, cols) {
+    bd.forEach(function (b, i) {
+      var top2 = base + b[2] * hmul * vs;
+      Q(b[0], base, b[0] + b[1], top2, G2(cols[i % cols.length], .9));
+      if (k > .3) for (var r = 0; r < 3; r++) { var vv = base + (top2 - base) * (.3 + r * .22); Q(b[0] + b[1] * .25, vv, b[0] + b[1] * .45, vv + .025, [255, 224, 140], k); }
+    });
+  }
+  if (R.scenery === 'han') {
+    Q(0, 0, 1, .12 * vs, G2('#6FA463', .6));
+    Q(0, .12 * vs, 1, .34 * vs, G2('#5C9BD1', .8));
+    Q(0, .22 * vs, 1, .235 * vs, G2('#8FC0E6', .8));
+    Q(0, .34 * vs, 1, .4 * vs, G2('#5E8F58', .6));
+    city(.4 * vs, .5, ['#8FA3B5', '#A5B4C2', '#7F92A5']);
+  } else if (R.scenery === 'city') {
+    Q(0, 0, 1, .06 * vs, G2('#6B7782', .6));
+    city(.06 * vs, .95, ['#7F90A3', '#98A8B8', '#6C7C8E']);
+  } else if (R.scenery === 'park') {
+    var win = R.season === 'winter';
+    Q(0, 0, 1, .22 * vs, win ? G2('#EEF3F6', .5) : G2('#5E9E5A', .6));
+    Q(0, .22 * vs, 1, .34 * vs, win ? G2('#DDE6EC', .5) : G2('#7DB86F', .6));
+    [[.12, .3], [.32, .24], [.52, .32], [.72, .26], [.9, .3]].forEach(function (t) {
+      var cx = t[0], cy = (.12 + t[1] * .3) * vs, rr = .09;
+      Q(cx - .008, cy - .1 * vs, cx + .008, cy, G2('#6B4B32', .7));
+      var pts = [];
+      for (var a = 0; a < 8; a++) { var ang = a / 8 * Math.PI * 2; pts.push(P(cx + Math.cos(ang) * rr * .65, cy + .03 + Math.sin(ang) * rr * 1.15 * vs + .05 * vs)); }
+      quad(F, pts, [0, 0, 1], G2(seasonC, .5), 1.5, { e: 1 });
+    });
+  } else {
+    Q(0, 0, 1, .3, hex('#D5DEE3'), 1);
+  }
+  // 창틀
+  var fr = C.white, ft = 4;
+  quad(F, [[x0 - ft, sill - ft, z + .1], [x0 + w.w + ft, sill - ft, z + .1], [x0 + w.w + ft, sill, z + .1], [x0 - ft, sill, z + .1]], [0, 0, 1], fr, 1.55);
+  quad(F, [[x0 - ft, top, z + .1], [x0 + w.w + ft, top, z + .1], [x0 + w.w + ft, top + ft, z + .1], [x0 - ft, top + ft, z + .1]], [0, 0, 1], fr, 1.55);
+  quad(F, [[x0 - ft, sill, z + .1], [x0, sill, z + .1], [x0, top, z + .1], [x0 - ft, top, z + .1]], [0, 0, 1], fr, 1.55);
+  quad(F, [[x0 + w.w, sill, z + .1], [x0 + w.w + ft, sill, z + .1], [x0 + w.w + ft, top, z + .1], [x0 + w.w, top, z + .1]], [0, 0, 1], fr, 1.55);
+  quad(F, [[x0 + w.w / 2 - 1.5, sill, z + .1], [x0 + w.w / 2 + 1.5, sill, z + .1], [x0 + w.w / 2 + 1.5, top, z + .1], [x0 + w.w / 2 - 1.5, top, z + .1]], [0, 0, 1], fr, 1.55);
+  // 커튼
+  var span = w.w + 36, cl = x0 - 18, cr = cl + span, half = span / 2, pw = half * (1 - R.curtOpen) + 12, cy0 = 10, cy1 = Math.min(HW - 6, top + 20);
+  if (cy1 > cy0 + 10) {
+    [[cl, cl + pw], [cr - pw, cr]].forEach(function (pr) {
+      var n = 5, sw2 = (pr[1] - pr[0]) / n;
+      for (var i = 0; i < n; i++) quad(F, [[pr[0] + i * sw2, cy0, 2], [pr[0] + (i + 1) * sw2, cy0, 2], [pr[0] + (i + 1) * sw2, cy1, 2], [pr[0] + i * sw2, cy1, 2]], [0, 0, 1], mix(R.curt, [0, 0, 0], i % 2 ? .12 : 0), 1.6);
+    });
+  }
+}
+function loftFaces(F, R) {
+  var p = R.loft, W = R.W, D = R.D, dep = R.loftDepth * p, top = R.loftY, T0 = { x: 0, z: 0, rot: 0, y: 0 };
+  addBox(F, T0, { y0: top - 10, h: 10, w: dep, d: D, dx: W - dep / 2, dz: D / 2, c: C.wood }, 2, 1);
+  if (p > .6) {
+    addBox(F, T0, { y0: top, h: 14, w: Math.min(100, dep - 20), d: 200, dx: W - Math.min(100, dep - 20) / 2 - 12, dz: 110, c: C.white }, 2, 1);
+    addBox(F, T0, { y0: top, h: 92, w: 3, d: D - 120, dx: W - dep, dz: (D - 120) / 2, c: mix(C.wood, [255, 255, 255], .15) }, 2, 1);
+  }
+  if (R.stairs) {
+    var n = 10, rise = top / n, x0 = W - R.loftDepth - 170;
+    for (var i = 0; i < n; i++) addBox(F, T0, { y0: 0, h: (i + 1) * rise, w: 17, d: 70, dx: x0 + i * 17 + 8.5, dz: D - 65, c: i % 2 ? C.wood : mix(C.wood, [255, 255, 255], .1) }, 2, p);
+  }
+}
+function render() {
+  var cam = S.cc = camSetup(), F = buildFaces(), out = [];
+  F.forEach(function (f) {
+    if (f.n && dot(f.n, sub(cam.e, f.pts[0])) <= 0) return;
+    var sp = projFace(f.pts, cam);
+    if (!sp) return;
+    f.sp = sp;
+    if (f.layer >= 2) {
+      var cx = 0, cy = 0, cz = 0, n = f.pts.length;
+      f.pts.forEach(function (q) { cx += q[0]; cy += q[1]; cz += q[2]; });
+      var dd = sub([cx / n, cy / n, cz / n], cam.e); f.d = dot(dd, dd);
+    }
+    out.push(f);
+  });
+  out.sort(function (a, b) { return a.layer - b.layer || (a.layer >= 2 ? b.d - a.d : a.ord - b.ord); });
+  var R = S.room, br = brightness(R.hour, R.light), warm = R.light * clamp((R.hour - 17) / 3, 0, 1);
+  ctx.save();
+  ctx.setTransform(scale * DPR, 0, 0, scale * DPR, 0, 0);
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W2, H2);
+  ctx.lineJoin = 'round';
+  out.forEach(function (f) {
+    var k = 1, col = f.c;
+    if (!f.e) {
+      var lit = f.n ? Math.max(0, dot(f.n, LDIR)) : .5;
+      k = br * (.62 + .38 * lit);
+      if (warm > 0) col = mix(col, [255, 214, 150], warm * .18);
+    }
+    ctx.beginPath();
+    f.sp.forEach(function (q, i) { if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+    ctx.closePath();
+    ctx.globalAlpha = f.a;
+    ctx.fillStyle = css(col, k);
+    ctx.fill();
+    ctx.lineWidth = .8;
+    ctx.strokeStyle = css(col, k * (f.e ? 1 : .8), .9);
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+  overlay(cam);
+  ctx.restore();
+}
+function overlay(cam) {
+  var acc = ACCENT;
+  S.items.forEach(function (it) {
+    if (it.sel < .01) return;
+    var th = it.rot * D2R, cs = Math.cos(th), sn = Math.sin(th), hw = it.w / 2 + 3, hd = it.d / 2 + 3, y = it.lift + 1.5;
+    var cor = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(function (q) { return [it.x + q[0] * cs + q[1] * sn, y, it.z - q[0] * sn + q[1] * cs]; });
+    var sp = projFace(cor, cam); if (!sp) return;
+    ctx.beginPath(); sp.forEach(function (q, i) { if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }); ctx.closePath();
+    ctx.globalAlpha = it.sel; ctx.lineWidth = 3; ctx.strokeStyle = acc; ctx.fillStyle = acc.replace('rgb', 'rgba').replace(')', ',.14)'); ctx.fill(); ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+  if (S.handles) {
+    var pul = 1 + .18 * Math.sin(S.T / 180);
+    S.handles().forEach(function (h) {
+      var s = proj(h);
+      ctx.beginPath(); ctx.arc(s[0], s[1], 9 * pul, 0, 7); ctx.fillStyle = acc; ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+    });
+  }
+}
+
+/* ---------- 슬라이더 / 숫자 연결 ---------- */
+var BIND = {
+  ceilIn: function () { return (S.room.H - 230) / 320; },
+  winW: function () { return (S.room.win.w - 40) / 310; },
+  winH: function () { return (S.room.win.h - 30) / 203; },
+  winS: function () { return S.room.win.sill / 200; },
+  winO: function () { return (S.room.win.c - 60) / (S.room.W - 120); },
+  winC: function () { return S.room.curtOpen; },
+  loftD: function () { return (S.room.loftDepth - 120) / 480; },
+  timeIn: function () { return (S.room.hour - 5) / 17; },
+  floorIn: function () { return (S.room.fl - 1) / 39; },
+  angIn: function () { return ((S.sel ? S.sel.rot : 0) % 360 + 360) % 360 / 359; }
+};
+function fmtHour(h) { var hh = Math.floor(h), mm = Math.round((h - hh) * 4) * 15; if (mm === 60) { hh++; mm = 0; } return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm; }
+var lastTxt = {};
+function setT(id, t) {
+  var el = typeof id === 'string' ? $(id) || G(id) : id;
+  if (!el) return;
+  var key = el.id || el.dataset.g;
+  if (lastTxt[key] === t && el.isConnected && el.textContent === t) return;
+  lastTxt[key] = t; el.textContent = t;
+}
+function syncUI() {
+  var R = S.room;
+  Object.keys(BIND).forEach(function (g) {
+    var el = G(g); if (!el) return;
+    var f = clamp(BIND[g](), 0, 1);
+    el.firstChild.style.width = f * 100 + '%'; el.lastChild.style.left = f * 100 + '%';
+  });
+  var body = stage.querySelector('.pbody'); if (body) body.scrollTop = S.scroll;
+  setT('dims', Math.round(R.W) + ' × ' + Math.round(R.D) + ' cm');
+  setT('roomW', Math.round(R.W)); setT('roomD', Math.round(R.D));
+  setT('ceilOut', Math.round(R.H) + 'cm');
+  setT('winWo', Math.round(R.win.w) + 'cm'); setT('winHo', Math.round(R.win.h) + 'cm'); setT('winSo', Math.round(R.win.sill) + 'cm');
+  setT('winOo', Math.round(R.win.c - R.W / 2) + 'cm'); setT('winCo', Math.round(R.curtOpen * 100) + '%');
+  setT('loftDo', Math.round(R.loftDepth) + 'cm');
+  setT('timeOut', fmtHour(R.hour)); setT('floorOut', Math.round(R.fl) + '층');
+  var s = S.sel;
+  if (s) {
+    setT('selName', KINDS[s.k].n);
+    setT('selSize', Math.round(s.w) + ' × ' + Math.round(s.d) + ' × ' + KINDS[s.k].h + 'cm');
+    setT('angOut', Math.round(((s.rot % 360) + 360) % 360) + '°');
+    setT('wNum', Math.round(s.w)); setT('dNum', Math.round(s.d)); setT('hNum', KINDS[s.k].h);
+  }
+  if (S.follow) { var c = ctr(S.follow); S.cur.x = c[0]; S.cur.y = c[1]; }
+  var cu = $('cursor');
+  cu.style.transform = 'translate(' + (S.cur.x - 3) + 'px,' + (S.cur.y - 3) + 'px)';
+  cu.style.opacity = S.cur.vis;
+  cu.classList.toggle('down', S.cur.down > .5);
+}
+function selectIt(it) {
+  if (S.sel && S.sel !== it) tw(S.sel, 'sel', 0, 200);
+  S.sel = it;
+  if (it) { tw(it, 'sel', 1, 250); show('selbar', 1); } else show('selbar', 0);
+}
+
+/* ---------- 장면 시작 ---------- */
+var UI0 = '';
+function reset(o) {
+  o = o || {};
+  tweens = []; pend = []; fx.forEach(function (f) { if (f.el && f.rm !== false) f.el.remove(); }); fx = [];
+  stage.querySelectorAll('.tip,.rip,.big,.chips,.fileico').forEach(function (e) { e.remove(); });
+  uiBox.innerHTML = UI0; lastTxt = {};
+  S.room = Object.assign(roomDefaults(), o.room || {});
+  if (o.win) S.room.win = Object.assign(S.room.win, o.win);
+  S.items = o.items || baseItems();
+  S.cam = Object.assign(camDefault(), o.cam || {});
+  S.cam.t = S.cam.t.slice();
+  S.cur = { x: 600, y: 330, vis: 0, down: 0 };
+  S.sel = null; S.handles = null; S.follow = null; S.scroll = 0;
+  badge('');
+  ['keys'].forEach(function (id) { $(id).classList.remove('show'); $(id).innerHTML = ''; });
+  $('pad').classList.remove('show');
+  ['toast', 'walkPrompt'].forEach(function (id) { $(id).style.opacity = 0; });
+  $('cross').classList.remove('y');
+  var ui = o.ui || {};
+  show('panel', ui.panel !== false); show('vbtns', ui.panel !== false); show('walkhud', 0); show('selbar', 0);
+  tab(ui.tab || 'place');
+  $('endcard').classList.remove('show');
+  S.T = 0;
+}
+
+/* ---------- 장면 목록 ---------- */
+var SW_SOFA = ['#7C8FA6', '#E26D5A', '#F2B84B', '#6FB07F', '#8E6CC4'];
+var CH = [
+  { name: '시작하기', scenes: [
+    { t: '3D 방 구현이란?', min: 9000, narr: '3D 방 구현은 내 자취방을 화면 속에 똑같이 꾸며 보는 기능이에요. 가구를 놓아 보고, 색을 바꾸고, 직접 걸어 다니며 둘러볼 수 있어요.',
+      run: function () {
+        reset({ items: [], cam: { yaw: -75, pitch: 32, dist: 780 }, ui: { panel: false } });
+        big('나만의 자취방을\n3D로 꾸며 보세요', '가구 배치 · 꾸미기 · 1인칭 둘러보기', true, 300, 8200);
+        var L = baseItems(); L.push(mk('sofa', 110, 270, { rot: 90 }));
+        L.forEach(function (it, i) {
+          at(600 + i * 620, function () { it.drop = 190; it.alpha = 0; S.items.push(it); tw(it, 'drop', 0, 700, 0, eBounce); tw(it, 'alpha', 1, 350); });
+        });
+        tw(S.cam, 'yaw', -8, 9000, 0, eLin);
+      } },
+    { t: '화면은 이렇게 생겼어요', min: 12000, narr: '맨 위 버튼은 보는 방법을 바꿔요. 아래 탭은 배치, 방, 꾸미기, 환경 네 가지이고, 가구를 누르면 편집 막대가 나타나요.',
+      run: function () {
+        reset({ ui: { panel: false } });
+        show('panel', 1); show('vbtns', 1);
+        at(900, function () { hl('v3d', 1500); tipEl('v3d', '3D · 기본 시점', 'b', 1700); });
+        at(2500, function () { hl('vtop', 1500); tipEl('vtop', '위에서 · 평면도처럼', 'b', 1700); });
+        at(4100, function () { hl('vcut', 1500); tipEl('vcut', '벽 낮추기', 'b', 1700); });
+        at(5700, function () { hl('vwalk', 1500); tipEl('vwalk', '1인칭 · 방 안 걷기', 'b', 1700); });
+        [['place', '배치 · 가구와 도구'], ['room', '방 · 크기, 창문, 저장'], ['deco', '꾸미기 · 바닥, 벽지'], ['env', '환경 · 풍경, 시간']].forEach(function (t, i) {
+          at(7400 + i * 1050, function () { tab(t[0]); hl('tab-' + t[0], 950); tipEl('tab-' + t[0], t[1], 'r', 1000); });
+        });
+        at(11700, function () { tab('place'); var d = S.items[1]; selectIt(d); tipW([165, 80, 32], '가구를 누르면 편집 막대가', 3000, 't'); });
+      } }
+  ] },
+  { name: '시점 움직이기', scenes: [
+    { t: '마우스와 터치로 보기', min: 11500, narr: '빈 곳을 끌면 시점이 돌아가고, 오른쪽 버튼으로 끌면 시점이 옮겨져요. 휠이나 두 손가락 벌리기로 확대하고 줄여요. 휴대폰에서는 한 손가락으로 돌려요.',
+      run: function () {
+        reset();
+        var cx = compact ? 470 : 800;
+        at(300, function () { S.cur.x = cx; S.cur.y = 190; curShow(1); });
+        at(700, function () { S.cur.down = 1; badge('왼쪽 끌기'); curTo(cx - 180, 210, 2000); camTo({ yaw: 45 }, 2000); tip('빈 곳을 끌면 시점 돌리기', cx - 80, 130, 2400); });
+        at(2900, function () { S.cur.down = 0; badge(''); });
+        at(3300, function () { curTo(cx - 40, 280, 600); });
+        at(4000, function () { S.cur.down = 1; badge('오른쪽 끌기'); curTo(cx - 140, 330, 1700); camTo({ t: [140, 60, 240] }, 1700); tip('오른쪽 버튼으로 끌면 시점 옮기기', cx - 100, 130, 2400); });
+        at(5900, function () { S.cur.down = 0; badge(''); });
+        at(6300, function () { badge('휠 굴리기 · 두 손가락 벌리기'); camTo({ dist: 480 }, 1500); tip('확대', cx - 90, 130, 1500); });
+        at(8000, function () { camTo({ dist: 900 }, 1500); tip('축소', cx - 90, 130, 1500); });
+        at(9800, function () { badge(''); camTo({ yaw: -30, t: [210, 60, 180], dist: 720 }, 1300); });
+      } },
+    { t: '키보드로 움직이기', min: 10500, narr: '키보드 W, A, S, D로 앞뒤좌우로 움직이고, Q와 E로 제자리에서 돌아요. Shift를 누르면 더 빨리 움직여요.',
+      run: function () {
+        reset();
+        keysShow([{ keys: ['Q', 'W', 'E'] }, { keys: ['A', 'S', 'D'] }, { label: 'Shift 누르고 이동하면 빠르게' }]);
+        var yaw = -30, f = [-Math.sin(yaw * D2R), 0, -Math.cos(yaw * D2R)], r = [-f[2], 0, f[0]];
+        function go(v, n) { return [210 + v[0] * n, 60, 180 + v[2] * n]; }
+        keyTap('W', 700, 1700); at(700, function () { camTo({ t: go(f, 110) }, 1700); tip('W · 앞으로', 690, 40, 1700); });
+        keyTap('S', 2700, 1700); at(2700, function () { camTo({ t: go(f, 0) }, 1700); tip('S · 뒤로', 690, 40, 1700); });
+        keyTap('A', 4700, 1500); at(4700, function () { camTo({ t: go(r, -100) }, 1500); tip('A · 왼쪽으로', 690, 40, 1500); });
+        keyTap('D', 6500, 1500); at(6500, function () { camTo({ t: go(r, 0) }, 1500); tip('D · 오른쪽으로', 690, 40, 1500); });
+        keyTap('Q', 8300, 900); at(8300, function () { camTo({ yaw: -60 }, 900); tip('Q · 왼쪽으로 돌기', 690, 40, 1000); });
+        keyTap('E', 9400, 900); at(9400, function () { camTo({ yaw: -30 }, 900); tip('E · 오른쪽으로 돌기', 690, 40, 1000); });
+      } },
+    { t: '위에서 보기 · 벽 낮추기', min: 11500, narr: '위에서 버튼은 평면도처럼 보여 주고, 벽 낮추기는 벽을 낮춰 안쪽을 잘 보여 줘요. 3D를 누르면 처음 시점으로 돌아와요.',
+      run: function () {
+        reset();
+        at(300, function () { curShow(1); });
+        var t = ce('vtop', 600, function () { camTo({ pitch: 89, yaw: 0, dist: 760 }, 1400); tipEl('vtop', '평면도처럼 위에서', 'b', 2400); });
+        t = ce('v3d', t + 2800, function () { camTo({ pitch: 38, yaw: -30, dist: 720 }, 1300); });
+        t = ce('vcut', t + 1800, function () { tw(S.room, 'cut', 1, 1000); tipEl('vcut', '벽을 낮춰 안쪽 보기', 'b', 2400); });
+        ce('vcut', t + 2800, function () { tw(S.room, 'cut', 0, 900); });
+      } }
+  ] },
+  { name: '가구 놓기', scenes: [
+    { t: '가구 추가하기', min: 10000, narr: '배치 탭에서 목록을 열어 가구를 고르고 추가를 누르면 방에 놓여요. 가구, 가전, 소품, 조명, 문, 주방, 화장실까지 있어요.',
+      run: function () {
+        reset();
+        at(300, function () { curShow(1); });
+        var t = ce('addSel', 600, function () { G('addMenu').classList.add('show'); });
+        at(t + 500, function () { curEl('m-sofa', 600); });
+        at(t + 1150, function () { G('m-sofa').classList.add('hov'); });
+        at(t + 1700, function () { click(); G('addMenu').classList.remove('show'); $('addTxt').textContent = '소파'; });
+        t = ce('addBtn', t + 2200, function () {
+          var s = mk('sofa', 110, 270, { rot: 90, drop: 170, alpha: 0 }); S.items.push(s);
+          tw(s, 'drop', 0, 700, 0, eBounce); tw(s, 'alpha', 1, 350);
+          tipW([110, 80, 270], '짠! 방에 놓였어요', 2200, 't');
+        });
+        chips(['가구', '가전', '소품', '조명', '문', '주방', '화장실'], t + 1500, 330);
+      } },
+    { t: '끌어서 옮기기', min: 10500, narr: '가구는 끌어서 옮겨요. 무드등이나 모니터 같은 작은 물건은 책상이나 침대 위로 끌면 그 위에 올라가요.',
+      run: function () {
+        var sofa = mk('sofa', 110, 270, { rot: 90 }), lamp = mk('lamp', 310, 300);
+        reset({ items: baseItems().concat([sofa, lamp]) });
+        function drag(it, tx, tz, t0, ms, lift) {
+          at(t0, function () { curShow(1); var a = proj([it.x, 30 + it.lift, it.z]); curTo(a[0], a[1], 800); });
+          at(t0 + 900, function () {
+            S.cur.down = 1; var b = proj([tx, 30 + (lift || 0), tz]);
+            curTo(b[0], b[1], ms); tw(it, 'x', tx, ms); tw(it, 'z', tz, ms); tw(it, 'dy', 14, 250); tw(it, 'lift', lift || 0, ms);
+          });
+          at(t0 + 900 + ms, function () { S.cur.down = 0; tw(it, 'dy', 0, 220); });
+          return t0 + 900 + ms + 300;
+        }
+        var t = drag(sofa, 255, 290, 400, 1800, 0);
+        at(t - 1000, function () { tipW([255, 90, 290], '끌어서 옮기기', 1800, 't'); });
+        t = drag(lamp, 125, 32, t + 600, 1800, 74);
+        at(t - 600, function () { tipW([125, 130, 32], '책상 위로 끌면 올라가요', 2800, 't'); });
+      } },
+    { t: '편집 막대 쓰기', min: 12500, narr: '가구를 누르면 아래에 편집 막대가 나타나요. 각도와 크기, 색을 바꾸고, 위치 고정을 누르면 실수로 움직이지 않아요. R은 15도 돌리기, Delete는 삭제, Ctrl Z는 되돌리기예요.',
+      run: function () {
+        var sofa = mk('sofa', 150, 270, { rot: 0 });
+        reset({ items: baseItems().concat([sofa]) });
+        at(300, function () { curShow(1); var a = proj([150, 50, 270]); curTo(a[0], a[1], 700); });
+        at(1100, function () { click(); selectIt(sofa); tip('가구를 누르면 편집 막대가 나타나요', 480, 360, 2400); });
+        at(2700, function () { curEl('angIn', 800); });
+        at(3600, function () { S.cur.down = 1; S.follow = 'angIn'; tw(sofa, 'rot', 90, 1400); tip('각도', ctr('angIn')[0], ctr('angIn')[1] - 34, 1600); });
+        at(5100, function () { S.cur.down = 0; S.follow = null; curEl('wNum', 600); });
+        at(5800, function () { click(); tw(sofa, 'w', 220, 900); tip('가로 · 세로 · 높이는 숫자로', ctr('wNum')[0], ctr('wNum')[1] - 36, 1800); });
+        var t = ce('sc1', 7000, function () { tw(sofa, 'c', hex('#E26D5A'), 600); press('sc1'); });
+        ce('lockBtn', t + 400, function () { toast('🔒 위치가 고정됐어요', 1800); });
+        at(9600, function () {
+          keysShow([{ keys: ['R'] }, { label: '15° 돌리기' }, { keys: ['Delete'] }, { label: '삭제' }, { keys: ['Ctrl', 'Z'] }, { label: '되돌리기' }]);
+          keyTap('R', 10000, 600); keyTap('Delete', 10600, 600); keyTap('Ctrl', 11200, 700); keyTap('Z', 11200, 700);
+        });
+      } }
+  ] },
+  { name: '방 만들기', scenes: [
+    { t: '방 크기 바꾸기', min: 13000, narr: '방 탭에서 가로와 세로를 센티미터로 넣고 Enter를 누르면 방 크기가 바뀌어요. 층고는 막대로 조절하고, 방 크기 도구로 파란 손잡이를 끌어도 돼요.',
+      run: function () {
+        reset();
+        at(300, function () { curShow(1); });
+        var t = ce('tab-room', 500, function () { tab('room'); });
+        t = ce('roomW', t + 500, function () { tw(S.room, 'W', 520, 1200); camTo({ t: [260, 60, 180] }, 1200); tip('가로 입력 후 Enter', ctr('roomW')[0] + 80, ctr('roomW')[1], 2000, 'r'); });
+        t = ce('roomD', t + 1700, function () { tw(S.room, 'D', 420, 1200); camTo({ t: [260, 60, 210] }, 1200); tip('세로도 같은 방법으로', ctr('roomD')[0] + 80, ctr('roomD')[1], 2000, 'r'); });
+        at(t + 1600, function () { curEl('ceilIn', 700); });
+        at(t + 2400, function () { S.cur.down = 1; S.follow = 'ceilIn'; tw(S.room, 'H', 300, 1400); tip('층고', ctr('ceilIn')[0], ctr('ceilIn')[1] - 34, 1800); });
+        at(t + 3900, function () { S.cur.down = 0; S.follow = null; });
+        t = ce('tab-place', t + 4300, function () { tab('place'); });
+        t = ce('mode-resize', t + 300, function () {
+          mode('mode-resize', '방 밖의 파란 손잡이를 끌면 벽이 움직여요.');
+          camTo({ pitch: 89, yaw: 0, dist: 850 }, 1200);
+          S.handles = function () { var R = S.room; return [[R.W / 2, 0, -22], [R.W + 22, 0, R.D / 2], [R.W / 2, 0, R.D + 22], [-22, 0, R.D / 2]]; };
+        });
+        at(t + 1600, function () { var h = proj([S.room.W + 22, 0, S.room.D / 2]); curTo(h[0], h[1], 700); });
+        at(t + 2400, function () { S.cur.down = 1; var h2 = proj([S.room.W + 22 + 40, 0, S.room.D / 2]); curTo(h2[0], h2[1], 1000); tw(S.room, 'W', 560, 1000); camTo({ t: [280, 60, 210] }, 1000); tip('파란 손잡이를 끌어요', h2[0], h2[1] - 30, 1800); });
+        at(t + 3500, function () { S.cur.down = 0; });
+      } },
+    { t: '벽 · 방 그리기', min: 14000, narr: '벽 그리기는 바닥을 끌어 천장까지 닿는 벽을 세워요. 방 만들기는 대각선으로 끌면 문 달린 방이 생겨요. 칸막이, 수납 칸, 지우개, 거리 재기도 있어요.',
+      run: function () {
+        var wall = mk('wallseg', 0, 240, { len: 0 }), room2 = mk('miniroom', 235, 250, { w: 0, d: 0 });
+        var its = baseItems().filter(function (i) { return i.k !== 'rug'; });
+        reset({ items: its });
+        at(300, function () { curShow(1); });
+        var t = ce('mode-wall', 500, function () { mode('mode-wall', '바닥을 끌어서 천장까지 닿는 벽을 그리세요. 15° 단위로 맞춰져요.'); camTo({ pitch: 55 }, 800); });
+        at(t + 300, function () { S.items.push(wall); var a = proj([0, 0, 240]); curTo(a[0], a[1], 700); });
+        at(t + 1100, function () { S.cur.down = 1; var b = proj([170, 0, 240]); curTo(b[0], b[1], 1500); tw(wall, 'len', 170, 1500); tipW([85, 140, 240], '끌면 벽이 세워져요', 2000, 't'); });
+        at(t + 2700, function () { S.cur.down = 0; });
+        t = ce('mode-room', t + 3100, function () { mode('mode-room', '바닥을 대각선으로 끌면 방이 만들어져요. 입구 방향과 문 종류를 고르세요.'); });
+        at(t + 300, function () { S.items.push(room2); var a = proj([235, 0, 250]); curTo(a[0], a[1], 700); });
+        at(t + 1100, function () { S.cur.down = 1; var b = proj([405, 0, 345]); curTo(b[0], b[1], 1500); tw(room2, 'w', 170, 1500); tw(room2, 'd', 95, 1500); tipW([320, 150, 250], '대각선으로 끌면 문 달린 방', 2200, 't'); });
+        at(t + 2700, function () { S.cur.down = 0; badge(''); });
+        [['mode-partition', 5200], ['mode-shelf', 5800], ['mode-erase', 6400], ['mode-measure', 7000]].forEach(function (m, i) {
+          at(t + m[1] - 1000, function () { hl(m[0], 700); });
+        });
+        at(t + 4400, function () { tip('칸막이 · 수납 칸 · 지우개 · 거리 재기', ctr('mode-shelf')[0], ctr('mode-shelf')[1] + 28, 3200, 'c'); });
+      } },
+    { t: '창문 꾸미기', min: 12500, narr: '창문은 종류를 고르고 크기, 창턱 높이, 위치, 커튼이 열린 정도를 조절해요. 창문을 직접 끌어서 옮길 수도 있어요.',
+      run: function () {
+        reset({ ui: { tab: 'room' } });
+        at(300, function () { curShow(1); scrollTo('winSec', 500); });
+        var t = ce('win-full', 1200, function () { tw(S.room.win, 'h', 190, 900); tw(S.room.win, 'sill', 20, 900); tw(S.room.win, 'w', 170, 900); tipEl('win-full', '통창으로 바꾸기', 'r', 1800); });
+        at(t + 500, function () { curEl('winW', 700); });
+        at(t + 1300, function () { S.cur.down = 1; S.follow = 'winW'; tw(S.room.win, 'w', 230, 1300); });
+        at(t + 2700, function () { S.cur.down = 0; S.follow = null; curEl('winO', 600); });
+        at(t + 3400, function () { S.cur.down = 1; S.follow = 'winO'; tw(S.room.win, 'c', 175, 1300); tipEl('winO', '창문 위치', 'r', 1600); });
+        at(t + 4800, function () { S.cur.down = 0; S.follow = null; curEl('winC', 600); });
+        at(t + 5500, function () { S.cur.down = 1; S.follow = 'winC'; tw(S.room, 'curtOpen', .1, 1100); tipEl('winC', '커튼이 열린 정도', 'r', 1800); });
+        at(t + 6700, function () { tw(S.room, 'curtOpen', .85, 900); });
+        at(t + 7700, function () { S.cur.down = 0; S.follow = null; var a = proj([S.room.win.c, 120, 0]); curTo(a[0], a[1], 700); });
+        at(t + 8500, function () { S.cur.down = 1; var b = proj([235, 120, 0]); curTo(b[0], b[1], 1100); tw(S.room.win, 'c', 235, 1100); tip('창문을 직접 끌어도 돼요', b[0], b[1] + 130, 2000, 'c'); });
+        at(t + 9700, function () { S.cur.down = 0; });
+      } },
+    { t: '복층 만들기', min: 10500, narr: '층고가 높다면 복층도 만들 수 있어요. 붙일 벽과 깊이, 높이를 정하고 계단이나 사다리를 골라요.',
+      run: function () {
+        reset({ room: { H: 380 }, ui: { tab: 'room' }, cam: { dist: 880, pitch: 34, t: [210, 110, 180] } });
+        at(300, function () { curShow(1); scrollTo('loftSec', 500); });
+        var t = ce('loftBtn', 1300, function () { $('loftOpts').classList.add('show'); tw(S.room, 'loft', 1, 1400); tipW([330, 230, 180], '복층이 생겨요', 2200, 't'); });
+        at(t + 800, function () { scrollTo('loftSec', 400); });
+        at(t + 1500, function () { curEl('loftD', 700); });
+        at(t + 2300, function () { S.cur.down = 1; S.follow = 'loftD'; tw(S.room, 'loftDepth', 260, 1200); tipEl('loftD', '깊이', 'r', 1500); });
+        at(t + 3600, function () { S.cur.down = 0; S.follow = null; });
+        ce('loft-stairs', t + 4000, function () { tipEl('loft-stairs', '계단 또는 사다리', 'r', 2400); });
+      } }
+  ] },
+  { name: '꾸미기', scenes: [
+    { t: '바닥재와 벽지', min: 10000, narr: '꾸미기 탭에서 바닥재와 벽지 견본을 누르면 바로 바뀌어요. 직접 고르기로 원하는 색을 만들 수도 있어요.',
+      run: function () {
+        reset({ ui: { tab: 'deco' } });
+        at(300, function () { curShow(1); });
+        var t = ce('fl1', 500, function () { tw(S.room, 'floor', hex('#7A5638'), 700); });
+        t = ce('fl2', t + 900, function () { tw(S.room, 'floor', hex('#B9BDC1'), 700); });
+        t = ce('wl1', t + 1100, function () { tw(S.room, 'wall', hex('#B7C8B0'), 700); });
+        t = ce('wl3', t + 900, function () { tw(S.room, 'wall', hex('#E9CBC6'), 700); });
+        t = ce('wl5', t + 900, function () { tw(S.room, 'wall', hex('#F2E4B8'), 700); });
+        ce('fl0', t + 900, function () { tw(S.room, 'floor', hex('#C9A57A'), 700); tw(S.room, 'wall', hex('#EDE6DA'), 700); });
+        at(7200, function () { hl('pick', 1800); tipEl('pick', '직접 고르기', 'r', 1900); });
+      } },
+    { t: '커튼 · 문 · 타일', min: 11000, narr: '커튼 색도 고를 수 있고, 색에 따라 닫았을 때 들어오는 빛이 달라요. 블랙은 거의 암막이에요. 문 색과 화장실 타일도 따로 바꿔요.',
+      run: function () {
+        reset({ ui: { tab: 'deco' }, room: { curtOpen: .05, curt: hex('#E7DCC8') }, cam: { yaw: -22 } });
+        at(300, function () { curShow(1); scrollTo('curtSec', 400); });
+        var t = ce('ct1', 1200, function () { tw(S.room, 'curt', hex('#9DB8D3'), 600); });
+        t = ce('ct2', t + 900, function () { tw(S.room, 'curt', hex('#B7C8B0'), 600); });
+        t = ce('ct4', t + 900, function () { tw(S.room, 'curt', hex('#25272B'), 700); tipEl('ct4', '블랙은 거의 암막', 'r', 2400); });
+        at(t + 900, function () { scrollTo('doorSec', 500); });
+        t = ce('dr1', t + 2100, function () { tw(S.room, 'doorC', hex('#2F4F6B'), 700); tip('현관문 색이 바뀌어요', ctr('dr1')[0], ctr('dr1')[1] + 26, 2000, 'c'); });
+        at(t + 600, function () { scrollTo('tileSec', 500); });
+        ce('tl2', t + 1500, function () { tipEl('tl2', '화장실 타일은 바닥·벽 따로', 'r', 2400); });
+      } }
+  ] },
+  { name: '환경 바꾸기', scenes: [
+    { t: '창밖 풍경과 층수', min: 12000, narr: '환경 탭에서 창밖 풍경을 한강, 도시, 공원 중에 고르고, 건물 종류와 우리 집이 있는 층수를 정해요. 층이 높을수록 풍경이 멀리 보여요.',
+      run: function () {
+        reset({ ui: { tab: 'env' }, win: { w: 190, h: 150, sill: 70, c: 215 }, cam: { yaw: -12, dist: 640, t: [210, 80, 120] } });
+        at(300, function () { curShow(1); });
+        var t = ce('sc-city', 500, function () { S.room.scenery = 'city'; });
+        t = ce('sc-park', t + 1000, function () { S.room.scenery = 'park'; });
+        t = ce('sc-han', t + 1000, function () { S.room.scenery = 'han'; });
+        ce('bld-villa', t + 900, function () { tipEl('bld-villa', '건물 종류', 'b', 1600); });
+        at(t + 2600, function () { curEl('floorIn', 600); });
+        at(t + 3300, function () { S.cur.down = 1; S.follow = 'floorIn'; tw(S.room, 'fl', 32, 1700); tip('높은 층 · 풍경이 멀어요', 520, 360, 2000); });
+        at(t + 5200, function () { tw(S.room, 'fl', 3, 1700); tip('낮은 층 · 풍경이 가까워요', 520, 360, 2000); });
+        at(t + 7000, function () { S.cur.down = 0; S.follow = null; });
+      } },
+    { t: '시간 · 계절 · 조명', min: 15000, narr: '시간 막대를 움직이면 하늘과 방 안 밝기가 바뀌고, 밤에는 실내 조명을 켤 수 있어요. 계절을 고르면 벚꽃, 단풍, 눈이 나타나요. 커튼은 한 번에 열고 닫아요.',
+      run: function () {
+        reset({ ui: { tab: 'env' }, win: { w: 190, h: 150, sill: 70, c: 215 }, room: { scenery: 'park', hour: 8, fl: 4 }, cam: { yaw: -12, dist: 640, t: [210, 80, 120] } });
+        at(300, function () { curShow(1); curEl('timeIn', 700); });
+        at(1100, function () { S.cur.down = 1; S.follow = 'timeIn'; tw(S.room, 'hour', 21.5, 3400, 0, eLin); tip('시간이 흐르면 하늘이 바뀌어요', 560, 360, 2600); });
+        at(4600, function () { S.cur.down = 0; S.follow = null; });
+        var t = ce('lightBtn', 4900, function () { tw(S.room, 'light', 1, 600); tipEl('lightBtn', '실내 조명 켜기', 't', 2000); });
+        at(t + 1800, function () { tw(S.room, 'hour', 12, 900); tw(S.room, 'light', 0, 600); press('lightBtn'); });
+        t = ce('ss-autumn', t + 2200, function () { S.room.season = 'autumn'; });
+        t = ce('ss-winter', t + 900, function () { S.room.season = 'winter'; });
+        t = ce('ss-spring', t + 900, function () { S.room.season = 'spring'; });
+        t = ce('closeAll', t + 900, function () { tw(S.room, 'curtOpen', 0, 800); });
+        ce('openAll', t + 900, function () { tw(S.room, 'curtOpen', 1, 800); });
+      } }
+  ] },
+  { name: '1인칭 둘러보기', scenes: [
+    { t: '방 안을 걸어 보기', min: 15500, narr: '1인칭을 누르면 방 안에 들어온 것처럼 걸어 다닐 수 있어요. W, A, S, D로 걷고 Shift로 달려요. 마우스로 둘러보고, E나 클릭으로 문을 열어요.',
+      run: function () {
+        reset({ room: { hour: 14 } });
+        var fp = fpsCam([340, 160, 340], -25);
+        at(300, function () { curShow(1); });
+        ce('vwalk', 500, function () {
+          show('panel', 0); show('vbtns', 0); show('walkhud', 1); curShow(0);
+          camTo({ t: fp.t, yaw: fp.yaw, pitch: fp.pitch, dist: 1, fov: 72 }, 2200);
+        });
+        at(3900, function () { keysShow([{ keys: ['W', 'A', 'S', 'D'] }, { label: '걷기' }, { keys: ['Shift'] }, { label: '달리기' }]); keyDn('W', 1); camTo({ t: [fp.t[0] - 50, 160, fp.t[2] - 80] }, 1700); });
+        at(5700, function () { keyDn('W', 0); });
+        at(6000, function () { tip('마우스로 둘러보기', 480, 90, 2000); var f2 = fpsCam([270, 160, 250], 100); camTo({ yaw: f2.yaw }, 1900); });
+        at(8200, function () { setPrompt('E · 눌러서 문 열기'); keyDn('E', 0); });
+        at(9400, function () { keysShow([{ keys: ['E'] }, { label: '문 열기 · 조명 켜기' }]); keyDn('E', 1); tw(S.room, 'doorOpen', 1, 1500); setPrompt(''); });
+        at(10100, function () { keyDn('E', 0); });
+        at(11400, function () { tip('문이 열렸어요', 480, 90, 2200); });
+      } },
+    { t: '복층 오르기 · 나가기', min: 13500, narr: '계단이나 사다리 쪽으로 걸어가면 복층으로 올라가요. 휴대폰에서는 화면의 화살표 버튼으로 걷고, Esc를 두 번 누르면 나가요.',
+      run: function () {
+        var fp = fpsCam([20, 160, 295], 90);
+        reset({ room: { H: 430, loft: 1, loftDepth: 200, hour: 14, W: 460 }, ui: { panel: false }, cam: { t: fp.t, yaw: fp.yaw, pitch: 10, dist: 1, fov: 72 } });
+        show('walkhud', 1);
+        $('pad').classList.add('show');
+        at(900, function () { keysShow([{ keys: ['W'] }, { label: '계단 쪽으로 걷기' }]); keyDn('W', 1); camTo({ t: [fp.t[0] + 40, 160, 295] }, 1200); });
+        // 계단: x 60 ~ 230 (W-loftDepth-170 ~ W-loftDepth) 에서 높이 0 -> 210
+        at(2100, function () { camTo({ t: [fp.t[0] + 235, 160 + 210, 295], pitch: 12 }, 4300, 0, eLin); tip('계단으로 걸어가면 올라가요', 480, 90, 2600); });
+        at(6600, function () { keyDn('W', 0); tw(S.cam, 'yaw', -90 - 40, 1600); });
+        at(8300, function () { keysShow([{ keys: ['Esc'] }, { label: '두 번 누르면 나가기' }]); keyTap('Esc', 8600, 450); keyTap('Esc', 9300, 450); });
+        at(10200, function () {
+          show('walkhud', 0); $('pad').classList.remove('show'); $('keys').classList.remove('show');
+          camTo({ t: [230, 100, 180], yaw: -30, pitch: 34, dist: 880, fov: 40 }, 2400);
+        });
+        at(10400, function () { tip('휴대폰은 화면의 화살표 버튼으로 걸어요', 480, 40, 2400); });
+      } }
+  ] },
+  { name: '저장하고 마무리', scenes: [
+    { t: '방 저장하기', min: 12500, narr: '작업한 방은 자동으로 저장돼요. 다른 컴퓨터로 옮길 땐 파일로 저장을 누르고, 나중에 파일 불러오기로 열어요. 앱에서는 방을 저장하고 커뮤니티에 공유할 수도 있어요.',
+      run: function () {
+        reset({ ui: { tab: 'room' }, items: baseItems().concat([mk('sofa', 110, 270, { rot: 90 })]) });
+        at(300, function () { curShow(1); scrollTo('saveSec', 500); });
+        at(1100, function () { toast('✓ 자동으로 저장돼요', 2400); });
+        var t = ce('saveFile', 2300, function () { fileFly('saveFile', 'oneroom.json', 1); tip('다른 컴퓨터로 옮길 때', ctr('saveFile')[0], ctr('saveFile')[1] - 34, 2200, 'c'); });
+        t = ce('loadFile', t + 2600, function () { fileFly('loadFile', 'oneroom.json', 0); toast('✓ 방을 불러왔어요', 2000); });
+        at(t + 2400, function () { curShow(0); });
+        chips(['앱에서 방 저장', '커뮤니티에 공유', '홈에 고정'], t + 2500, 700);
+      } },
+    { t: '이제 직접 해보세요', min: 8500, narr: '여기까지가 3D 방 구현의 기본이에요. 이제 직접 방을 꾸며 보세요!',
+      run: function () {
+        var L = baseItems().concat([mk('sofa', 255, 290, { rot: 90 }), mk('lamp', 125, 32, { lift: 74 })]);
+        reset({ ui: { panel: false }, items: L, room: { hour: 19.5, light: 1, scenery: 'han', floor: hex('#B9BDC1'), wall: hex('#BCD3E2') }, cam: { yaw: -70, pitch: 32, dist: 760 } });
+        tw(S.cam, 'yaw', -5, 9000, 0, eLin);
+        at(6000, function () { $('endcard').classList.add('show'); });
+      } }
+  ] }
+];
+function fileFly(fromG, name, out) {
+  var a = ctr(fromG), el = document.createElement('div');
+  el.className = 'fileico'; el.textContent = '📄 ' + name; stage.appendChild(el);
+  var x0 = a[0], y0 = a[1], x1 = out ? W2 - 160 : x0, y1 = out ? H2 - 90 : y0;
+  var sx = out ? x0 : W2 - 160, sy = out ? y0 : H2 - 90, ex = out ? x1 : x0, ey = out ? y1 : y0;
+  fx.push({ el: el, st: S.T, ms: 1600, f: function (p) { var e = eIO(p); el.style.left = lerp(sx, ex, e) + 'px'; el.style.top = lerp(sy, ey, e) + 'px'; el.style.opacity = Math.min(1, p * 6, (1 - p) * 4); } });
+}
+
+/* ---------- 재생 제어 ---------- */
+var SC = [];
+CH.forEach(function (c, ci) { c.scenes.forEach(function (s, si) { s.ci = ci; s.si = si; s.chName = c.name; SC.push(s); }); });
+SC.forEach(function (s) { s.dur = Math.max(s.min, s.narr.length * 105 + 1200); });
+var idx = 0, playing = true, ended = false;
+var voiceOn = false, speechDone = true, spTok = 0, rate = 1, voiceName = '';
+var BG = '#DCE9F1', ACCENT = 'rgb(11,111,164)';
+function readTheme() {
+  var cs = getComputedStyle(document.documentElement);
+  BG = cs.getPropertyValue('--stagebg').trim() || BG;
+  var a = hex(cs.getPropertyValue('--accent').trim() || '#0B6FA4');
+  ACCENT = 'rgb(' + a[0] + ',' + a[1] + ',' + a[2] + ')';
+}
+function buildChrome() {
+  var nav = $('chapters');
+  nav.innerHTML = '';
+  CH.forEach(function (c, i) {
+    var b = document.createElement('button');
+    b.className = 'chip'; b.dataset.ci = i;
+    b.innerHTML = '<span class="n">' + (i + 1) + '</span>' + c.name;
+    b.addEventListener('click', function () { var first = SC.findIndex(function (s) { return s.ci === i; }); go(first); });
+    nav.appendChild(b);
+  });
+}
+function buildSegs() {
+  var s = SC[idx], box = $('segs');
+  box.innerHTML = '';
+  CH[s.ci].scenes.forEach(function (sc, i) {
+    var b = document.createElement('button');
+    b.className = 'seg'; b.title = sc.t; b.setAttribute('aria-label', sc.t); b.innerHTML = '<i></i>';
+    b.addEventListener('click', function () { go(SC.indexOf(sc)); });
+    box.appendChild(b);
+  });
+}
+function renderCaption() {
+  var s = SC[idx];
+  $('capMeta').textContent = '챕터 ' + (s.ci + 1) + ' · ' + s.chName;
+  $('capTitle').textContent = s.t;
+  var p = $('capText');
+  p.innerHTML = '';
+  (s.narr.match(/[^.?!]+[.?!]?/g) || [s.narr]).forEach(function (t, i) {
+    var sp = document.createElement('span');
+    sp.className = 's'; sp.textContent = t.trim() + ' ';
+    p.appendChild(sp);
+  });
+  document.querySelectorAll('.chip').forEach(function (c) { c.classList.toggle('on', +c.dataset.ci === s.ci); });
+  var on = document.querySelector('.chip.on'); if (on && on.scrollIntoView) { var nav = $('chapters'); nav.scrollLeft = on.offsetLeft - nav.clientWidth / 2 + on.clientWidth / 2; }
+  $('sceneNo').textContent = (idx + 1) + ' / ' + SC.length;
+  buildSegs();
+}
+function setPlayIcon() {
+  $('bPlay').innerHTML = ended
+    ? '<svg viewBox="0 0 24 24"><path d="M12 5V2L7 6.5 12 11V8a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8z"/></svg>'
+    : playing ? '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></svg>';
+  $('bPlay').setAttribute('aria-label', ended ? '처음부터 다시' : playing ? '일시정지' : '재생');
+}
+function go(i) {
+  idx = clamp(i, 0, SC.length - 1);
+  ended = false;
+  cancelSpeech();
+  SC[idx].run();
+  pend.sort(function (a, b) { return a.t - b.t; });
+  renderCaption();
+  playing = true; setPlayIcon();
+  if (voiceOn) setTimeout(speakScene, 80);
+}
+function next() {
+  if (idx >= SC.length - 1) { go(0); return; }
+  go(idx + 1);
+}
+
+/* ---------- 음성 (브라우저 음성 합성) ---------- */
+var TTS = 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+var voices = [];
+function scoreVoice(v) {
+  var n = v.name || '';
+  return (/natural|neural|online/i.test(n) ? 8 : 0) + (/google/i.test(n) ? 4 : 0) + (/sunhi|injoon|yuna|heami|seoyeon|narae/i.test(n) ? 2 : 0) + (v.localService ? 0 : 1);
+}
+function loadVoices() {
+  if (!TTS) return;
+  voices = speechSynthesis.getVoices().filter(function (v) { return /^ko/i.test(v.lang.replace('_', '-')); });
+  voices.sort(function (a, b) { return scoreVoice(b) - scoreVoice(a); });
+  var sel = $('voiceSel');
+  sel.innerHTML = '';
+  voices.forEach(function (v) { var o = document.createElement('option'); o.value = v.name; o.textContent = v.name.replace(/^Microsoft\s+/, '').replace(/\s*-\s*Korean.*/i, ''); sel.appendChild(o); });
+  if (voices.length) {
+    if (!voiceName || !voices.some(function (v) { return v.name === voiceName; })) voiceName = voices[0].name;
+    sel.value = voiceName;
+    $('vmsg').textContent = voices.length + '개의 한국어 목소리를 찾았어요. 이름에 Natural·Online이 붙은 목소리가 가장 자연스러워요.';
+  } else {
+    $('vmsg').textContent = '이 브라우저에서는 한국어 목소리를 찾지 못했어요. 크롬이나 엣지에서 열면 더 자연스러운 목소리를 쓸 수 있어요.';
+  }
+}
+function cancelSpeech() {
+  spTok++; speechDone = true;
+  if (TTS) { try { speechSynthesis.cancel(); } catch (e) {} }
+  document.querySelectorAll('#capText .s.on').forEach(function (s) { s.classList.remove('on'); });
+}
+function speakScene() {
+  if (!TTS || !voiceOn) return;
+  var tok = ++spTok, spans = document.querySelectorAll('#capText .s');
+  try { speechSynthesis.cancel(); } catch (e) {}
+  speechDone = false;
+  var v = voices.filter(function (x) { return x.name === voiceName; })[0];
+  var n = spans.length;
+  spans.forEach(function (sp, i) {
+    var u = new SpeechSynthesisUtterance(sp.textContent.replace(/Ctrl Z/g, '컨트롤 지').trim());
+    u.lang = 'ko-KR'; if (v) u.voice = v; u.rate = rate; u.pitch = 1;
+    u.onstart = function () { if (tok !== spTok) return; spans.forEach(function (x) { x.classList.remove('on'); }); sp.classList.add('on'); };
+    var fin = function () { if (tok !== spTok) return; sp.classList.remove('on'); if (i === n - 1) speechDone = true; };
+    u.onend = fin; u.onerror = fin;
+    speechSynthesis.speak(u);
+  });
+  if (!playing) { try { speechSynthesis.pause(); } catch (e) {} }
+}
+function setVoice(on) {
+  voiceOn = on;
+  $('bVoice').classList.toggle('on', on);
+  $('bVoice').setAttribute('aria-pressed', on);
+  $('voiceTxt').textContent = on ? '음성 끄기' : '음성으로 듣기';
+  if (on) { if (ended) go(0); else speakScene(); } else cancelSpeech();
+}
+
+/* ---------- 메인 루프 ---------- */
+var last = 0;
+function advance(dt) {
+  S.T += dt;
+  stepPend(); stepTweens(); stepFx();
+  var s = SC[idx];
+  if (S.T >= s.dur && (!voiceOn || speechDone) && !ended) next();
+}
+function paintProgress() {
+  var s = SC[idx], segs = $('segs').children, local = SC.filter(function (x) { return x.ci === s.ci; }).indexOf(s);
+  for (var i = 0; i < segs.length; i++) {
+    segs[i].classList.toggle('done', i < local);
+    segs[i].firstChild.style.width = i === local ? clamp(S.T / s.dur, 0, 1) * 100 + '%' : '';
+  }
+}
+function frame(ts) {
+  var dt = Math.min(60, ts - last || 16); last = ts;
+  if (playing) advance(dt);
+  syncUI(); render(); paintProgress();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- 레이아웃 ---------- */
+function layout() {
+  var w = wrap.clientWidth || 360;
+  compact = w < 640;
+  W2 = compact ? 620 : 960; H2 = compact ? 560 : 540;
+  camK = compact ? 1.42 : 1;
+  VCX = W2 * (compact ? .58 : .62); VCY = H2 * (compact ? .6 : .56);
+  stage.style.width = W2 + 'px'; stage.style.height = H2 + 'px';
+  wrap.style.aspectRatio = W2 + ' / ' + H2;
+  scale = wrap.clientWidth / W2;
+  stage.style.transform = 'scale(' + scale + ')';
+  stage.classList.toggle('compact', compact);
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.round(W2 * scale * DPR); cv.height = Math.round(H2 * scale * DPR);
+  cv.style.width = W2 * scale + 'px'; cv.style.height = H2 * scale + 'px';
+  cv.style.transformOrigin = '0 0'; cv.style.transform = 'scale(' + (1 / scale) + ')';
+}
+
+/* ---------- 화면 UI 뼈대 ---------- */
+function swatches(prefix, cols, on) { return cols.map(function (c, i) { return '<i class="sw' + (i === on ? ' on' : '') + '" data-g="' + prefix + i + '" data-grp="' + prefix + '" style="background:' + c + '"></i>'; }).join(''); }
+function slider(g, label, out) { return '<div class="srow"><label>' + label + '</label><div class="sl" data-g="' + g + '"><b></b><i></i></div><output id="' + out + '"></output></div>'; }
+function btn(g, t, extra) { return '<button class="b' + (extra || '') + '" data-g="' + g + '">' + t + '</button>'; }
+function buildUI() {
+  var h = '';
+  h += '<div id="vbtns" class="card"><button class="b on" data-g="v3d" data-grp="v">3D</button><button class="b" data-g="vtop" data-grp="v">위에서</button><button class="b" data-g="vcut" data-tg="1">벽 낮추기</button><button class="b pri" data-g="vwalk">1인칭</button></div>';
+  h += '<div id="panel" class="card"><div class="phead"><span>3D 방</span><small id="dims"></small></div>' +
+    '<div class="ptabs">' + ['place|배치', 'room|방', 'deco|꾸미기', 'env|환경'].map(function (t) { var a = t.split('|'); return '<button class="b" data-g="tab-' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="pbody">' +
+    // 배치
+    '<div class="tabp" data-tabp="place"><div class="lbl">가구 추가</div><div class="row"><div class="sel" data-g="addSel"><span id="addTxt">침대</span><em>▾</em></div>' + btn('addBtn', '추가') + '</div>' +
+    '<div class="menu" data-g="addMenu">' + ['침대', '책상', '옷장', '소파', 'TV 장', '화분', '무드등'].map(function (n, i) { return '<div data-g="m-' + (n === '소파' ? 'sofa' : i) + '">' + n + '</div>'; }).join('') + '</div>' +
+    '<div class="lbl">도구</div><div class="grid2">' +
+    [['mode-move', '이동'], ['mode-resize', '방 크기'], ['mode-wall', '벽 그리기'], ['mode-room', '방 만들기'], ['mode-partition', '칸막이'], ['mode-shelf', '수납 칸'], ['mode-erase', '지우개'], ['mode-measure', '거리 재기'], ['undo', '되돌리기']].map(function (m) { return '<button class="b' + (m[0] === 'mode-move' ? ' on' : '') + '" data-g="' + m[0] + '" data-grp="mode">' + m[1] + '</button>'; }).join('') +
+    '</div><div class="hint" id="modeHint">가구, 벽, 창문을 끌어서 옮기세요. 빈 곳을 끌면 시점이 돌아가요.</div>' +
+    '<div class="row">' + btn('clear', '방 비우기') + btn('reset', '방 초기화') + '</div></div>' +
+    // 방
+    '<div class="tabp" data-tabp="room"><div class="lbl">방 크기</div><div class="row"><span class="note">가로</span><span class="num" data-g="roomW"></span><span class="note">cm · 세로</span><span class="num" data-g="roomD"></span></div>' +
+    slider('ceilIn', '층고', 'ceilOut') +
+    '<div class="lbl">외벽 모양</div><div class="row">' + ['네모', 'ㄱ자', 'ㄴ자', '凸자', '凹자'].map(function (n, i) { return '<button class="b' + (i ? '' : ' on') + '">' + n + '</button>'; }).join('') + '</div>' +
+    '<div class="lbl" data-g="winSec">창문</div><div class="row">' + btn('win-normal', '일반 창', ' on') + btn('win-full', '통창') + btn('win-small', '작은 창') + '</div>' +
+    slider('winW', '가로', 'winWo') + slider('winH', '높이', 'winHo') + slider('winS', '창턱', 'winSo') + slider('winO', '위치', 'winOo') + slider('winC', '커튼', 'winCo') +
+    '<div class="lbl" data-g="loftSec">복층</div><div class="row">' + btn('loftBtn', '복층 만들기') + '</div>' +
+    '<div id="loftOpts">' + slider('loftD', '깊이', 'loftDo') + '<div class="row"><span class="note">오르기</span>' + btn('loft-stairs', '계단', ' on') + btn('loft-ladder', '사다리') + '</div></div>' +
+    '<div class="lbl" data-g="saveSec">저장</div><div class="note" style="margin-bottom:5px">자동으로 저장돼요. 다른 컴퓨터로 옮길 땐 파일로 저장하세요.</div><div class="row">' + btn('saveFile', '파일로 저장') + btn('loadFile', '파일 불러오기') + '</div><div style="height:140px"></div></div>' +
+    // 꾸미기
+    '<div class="tabp" data-tabp="deco"><div class="lbl">바닥재</div><div>' + swatches('fl', ['#C9A57A', '#7A5638', '#B9BDC1', '#E7DCC8', '#8C7A66', '#5E5A55'], 0) + '</div>' +
+    '<div class="lbl">벽지</div><div>' + swatches('wl', ['#EDE6DA', '#B7C8B0', '#BCD3E2', '#E9CBC6', '#CFD3D6', '#F2E4B8'], 0) + '<span class="b" data-g="pick" style="margin-left:2px">직접 고르기</span></div>' +
+    '<div class="lbl" data-g="curtSec">커튼 색</div><div>' + swatches('ct', ['#E7DCC8', '#9DB8D3', '#B7C8B0', '#C98C8C', '#25272B', '#7C6A9C'], 0) + '</div><div class="note">색에 따라 닫았을 때 들어오는 빛이 달라요. 블랙은 거의 암막.</div>' +
+    '<div class="lbl" data-g="doorSec">문 색</div><div>' + swatches('dr', ['#A47551', '#2F4F6B', '#E7DCC8', '#5E5A55', '#B07A7A'], 0) + '</div>' +
+    '<div class="lbl" data-g="tileSec">화장실 타일 (바닥 · 벽)</div><div>' + swatches('tl', ['#D8DEE2', '#B8C7C9', '#EDE6DA', '#8FA7B5'], 0) + '</div><div style="height:100px"></div></div>' +
+    // 환경
+    '<div class="tabp" data-tabp="env"><div class="lbl">창밖</div><div class="row">' +
+    [['sc-han', '한강', 1], ['sc-city', '도시'], ['sc-park', '공원'], ['sc-none', '없음']].map(function (m) { return '<button class="b' + (m[2] ? ' on' : '') + '" data-g="' + m[0] + '" data-grp="sc">' + m[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="lbl">건물</div><div class="row">' + [['bld-apt', '신축 아파트', 1], ['bld-off', '오피스텔'], ['bld-villa', '빌라'], ['bld-old', '구축 복도식']].map(function (m) { return '<button class="b' + (m[2] ? ' on' : '') + '" data-g="' + m[0] + '" data-grp="bld">' + m[1] + '</button>'; }).join('') + '</div>' +
+    slider('floorIn', '층수', 'floorOut') + slider('timeIn', '시간', 'timeOut') +
+    '<div class="lbl">계절</div><div class="row">' + [['ss-spring', '봄', 1], ['ss-summer', '여름'], ['ss-autumn', '가을'], ['ss-winter', '겨울']].map(function (m) { return '<button class="b' + (m[2] ? ' on' : '') + '" data-g="' + m[0] + '" data-grp="ss">' + m[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="row" style="margin-top:8px">' + btn('openAll', '커튼 모두 열기') + btn('closeAll', '커튼 모두 닫기') + '<button class="b" data-g="lightBtn" data-tg="1">실내 조명 켜기</button>' + '</div></div>' +
+    '</div></div>';
+  h += '<div id="selbar" class="card"><div class="r1"><b id="selName"></b><span id="selSize"></span><span class="sp"></span>' + '<button class="b" data-g="lockBtn" data-tg="1">위치 고정</button>' + btn('dupBtn', '복제') + btn('delBtn', '삭제', ' dng') + '</div>' +
+    '<div class="r2"><label>각도</label><div class="sl" data-g="angIn"><b></b><i></i></div><output id="angOut"></output><span class="b sm">−15°</span><span class="b sm">+15°</span></div>' +
+    '<div class="r3"><label>가로</label><span class="num" data-g="wNum"></span><label>세로</label><span class="num" data-g="dNum"></span><label>높이</label><span class="num" data-g="hNum"></span><label>색상</label><span class="sws">' +
+    SW_SOFA.map(function (c, i) { return '<i class="sw" data-g="sc' + i + '" data-grp="selc" style="background:' + c + '"></i>'; }).join('') + '</span></div></div>';
+  uiBox.innerHTML = h;
+  // 버튼 문자열 보정으로 생긴 속성 오류가 없는지 정리
+  uiBox.querySelectorAll('button[data-g]').forEach(function (b) { b.removeAttribute('type'); });
+  UI0 = uiBox.innerHTML;
+}
+
+/* ---------- 이벤트 ---------- */
+$('bPlay').addEventListener('click', function () {
+  if (ended) { go(0); return; }
+  playing = !playing; setPlayIcon();
+  if (TTS && voiceOn) { try { playing ? speechSynthesis.resume() : speechSynthesis.pause(); } catch (e) {} }
+});
+$('bPrev').addEventListener('click', function () { go(S.T > 2500 ? idx : idx - 1); });
+$('bNext').addEventListener('click', function () { if (idx < SC.length - 1) go(idx + 1); });
+$('again').addEventListener('click', function () { go(0); });
+$('bVoice').addEventListener('click', function () { setVoice(!voiceOn); });
+$('voiceSel').addEventListener('change', function () { voiceName = this.value; if (voiceOn) speakScene(); });
+$('rate').addEventListener('input', function () { rate = +this.value; $('rateTx').textContent = rate.toFixed(2).replace(/0$/, '') + '×'; });
+$('rate').addEventListener('change', function () { if (voiceOn) speakScene(); });
+document.addEventListener('keydown', function (e) {
+  if (/INPUT|SELECT|TEXTAREA/.test((e.target.tagName || ''))) return;
+  if (e.key === 'ArrowRight') { if (idx < SC.length - 1) go(idx + 1); }
+  else if (e.key === 'ArrowLeft') go(idx - 1);
+  else if (e.key === ' ' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A') { e.preventDefault(); $('bPlay').click(); }
+});
+window.addEventListener('resize', layout);
+if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+if (TTS) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; window.addEventListener('beforeunload', function () { speechSynthesis.cancel(); }); }
+else { $('bVoice').disabled = true; $('voiceTxt').textContent = '이 브라우저는 음성을 지원하지 않아요'; }
+document.addEventListener('visibilitychange', function () { last = 0; });
+
+/* ---------- 시작 ---------- */
+window.addEventListener('error', function (e) { document.title = 'ERR ' + e.message; });
+buildUI(); buildChrome(); readTheme(); layout();
+var q = new URLSearchParams(location.search), qs = q.get('scene');
+go(qs != null ? +qs : 0);
+if (q.get('at')) { var tgt = +q.get('at'); for (var tt = 0; tt < tgt; tt += 16) { S.T += 16; stepPend(); stepTweens(); stepFx(); } }
+if (q.get('run')) { var rt = +q.get('run'); for (var tt2 = 0; tt2 < rt; tt2 += 16) advance(16); }
+if (q.get('paused')) { playing = false; setPlayIcon(); }
+syncUI(); render();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -92,7 +92,7 @@ export function ComposeSheet({
             <Text style={[styles.roomHint, { color: theme.danger }]}>{roomsError}</Text>
           ) : rooms.length === 0 ? (
             <Text style={[styles.roomHint, { color: theme.textSecondary }]}>
-              {roomsLoading ? '불러오는 중…' : '3D 배치 탭에서 방을 저장하면 여기서 첨부할 수 있어요.'}
+              {roomsLoading ? '불러오는 중…' : '방 꾸미기 탭에서 방을 저장하면 여기서 첨부할 수 있어요.'}
             </Text>
           ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roomRow}>

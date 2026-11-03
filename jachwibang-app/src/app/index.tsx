@@ -82,11 +82,17 @@ export default function HomeScreen() {
           <Pressable onPress={() => router.navigate('/room')} accessibilityRole="button" accessibilityLabel="내 방 꾸미러 가기">
             {({ pressed }) => (
               <Card tone="soft" style={[styles.pinEmpty, pressed && styles.pressed]}>
-                <Ionicons name="cube-outline" size={26} color={theme.accent} />
+                <View style={[styles.roomIcon, { backgroundColor: theme.accent }]}>
+                  <Ionicons name="cube-outline" size={22} color={theme.onAccent} />
+                </View>
                 <Text style={[styles.roomTitle, { color: theme.text }]}>내 방을 3D로 꾸며보세요</Text>
                 <Text style={[styles.roomSub, { color: theme.textSecondary, textAlign: 'center' }]}>
-                  저장한 방의 핀을 누르면 여기에 바로 보여요
+                  가구를 배치하고 햇빛까지 확인해요.{'\n'}저장한 방에 핀을 꽂으면 여기에 보여요.
                 </Text>
+                <View style={[styles.cta, { backgroundColor: theme.accent }]}>
+                  <Text style={[styles.ctaText, { color: theme.onAccent }]}>꾸미러 가기</Text>
+                  <Ionicons name="arrow-forward" size={14} color={theme.onAccent} />
+                </View>
               </Card>
             )}
           </Pressable>
@@ -150,61 +156,48 @@ export default function HomeScreen() {
         )}
       </Card>
 
-      <View style={styles.statRow}>
-        <Card style={styles.stat}>
-          <View style={styles.statHead}>
-            <Ionicons name="leaf-outline" size={14} color={theme.accent} />
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>지난달 이맘때보다</Text>
-          </View>
-          {hasLastMonth ? (
-            <>
-              <Text style={[styles.statValue, { color: theme.text }]}>{formatWon(Math.abs(diff))}</Text>
-              <View style={styles.trendRow}>
-                <Ionicons
-                  name={diff <= 0 ? 'trending-down-outline' : 'trending-up-outline'}
-                  size={13}
-                  color={diff <= 0 ? theme.success : theme.warm}
-                />
-                <Text style={[styles.trendText, { color: diff <= 0 ? theme.success : theme.warm }]}>
-                  {diff <= 0 ? '덜 썼어요' : '더 썼어요'}
-                </Text>
-              </View>
-            </>
-          ) : (
-            <Text style={[styles.statEmpty, { color: theme.textSecondary }]}>다음 달부터 비교해 드려요</Text>
-          )}
-        </Card>
-        <Card style={styles.stat}>
-          <View style={styles.statHead}>
-            <Ionicons name={topCategory ? categoryIcon(topCategory.category) : 'pie-chart-outline'} size={14} color={theme.accent} />
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>가장 많이 쓴 곳</Text>
-          </View>
-          {topCategory ? (
-            <>
-              <Text style={[styles.statValue, { color: theme.text }]}>{topCategory.category}</Text>
-              <Text style={[styles.trendText, { color: theme.textSecondary }]}>{formatWon(topCategory.amount)}</Text>
-            </>
-          ) : (
-            <Text style={[styles.statEmpty, { color: theme.textSecondary }]}>아직 기록이 없어요</Text>
-          )}
-        </Card>
-      </View>
-
-      {/* 3D 방 바로가기 */}
-      <Pressable onPress={() => router.navigate('/room')} accessibilityRole="button">
-        {({ pressed }) => (
-          <Card tone="soft" style={[styles.roomCard, pressed && styles.pressed]}>
-            <View style={[styles.roomIcon, { backgroundColor: theme.accent }]}>
-              <Ionicons name="cube-outline" size={22} color={theme.onAccent} />
+      {/* 기록이 하나도 없을 땐 빈 통계 카드 두 개 대신 아래 '최근 기록'의 안내만 보여 준다. */}
+      {expenses.length > 0 ? (
+        <View style={styles.statRow}>
+          <Card style={styles.stat}>
+            <View style={styles.statHead}>
+              <Ionicons name="leaf-outline" size={14} color={theme.accent} />
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>지난달 이맘때보다</Text>
             </View>
-            <View style={styles.roomText}>
-              <Text style={[styles.roomTitle, { color: theme.text }]}>내 방 꾸미러 가기</Text>
-              <Text style={[styles.roomSub, { color: theme.textSecondary }]}>3D로 가구를 배치하고 햇빛까지 확인해요</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.accent} />
+            {hasLastMonth ? (
+              <>
+                <Text style={[styles.statValue, { color: theme.text }]}>{formatWon(Math.abs(diff))}</Text>
+                <View style={styles.trendRow}>
+                  <Ionicons
+                    name={diff <= 0 ? 'trending-down-outline' : 'trending-up-outline'}
+                    size={13}
+                    color={diff <= 0 ? theme.success : theme.warm}
+                  />
+                  <Text style={[styles.trendText, { color: diff <= 0 ? theme.success : theme.warm }]}>
+                    {diff <= 0 ? '덜 썼어요' : '더 썼어요'}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <Text style={[styles.statEmpty, { color: theme.textSecondary }]}>다음 달부터 비교해 드려요</Text>
+            )}
           </Card>
-        )}
-      </Pressable>
+          <Card style={styles.stat}>
+            <View style={styles.statHead}>
+              <Ionicons name={topCategory ? categoryIcon(topCategory.category) : 'pie-chart-outline'} size={14} color={theme.accent} />
+              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>가장 많이 쓴 곳</Text>
+            </View>
+            {topCategory ? (
+              <>
+                <Text style={[styles.statValue, { color: theme.text }]}>{topCategory.category}</Text>
+                <Text style={[styles.trendText, { color: theme.textSecondary }]}>{formatWon(topCategory.amount)}</Text>
+              </>
+            ) : (
+              <Text style={[styles.statEmpty, { color: theme.textSecondary }]}>아직 기록이 없어요</Text>
+            )}
+          </Card>
+        </View>
+      ) : null}
 
       <View style={styles.section}>
         <SectionHeader title="최근 기록" action="+ 기록하기" onAction={() => setExpenseOpen(true)} />
@@ -279,12 +272,20 @@ const styles = StyleSheet.create({
   statEmpty: { fontSize: 13, lineHeight: 18 },
   trendRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   trendText: { fontSize: 12 },
-  roomCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   pressed: { opacity: 0.8 },
-  roomIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  roomText: { flex: 1, gap: 2 },
+  roomIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.one },
   roomTitle: { fontSize: 15, fontWeight: '700' },
-  roomSub: { fontSize: 12 },
+  roomSub: { fontSize: 12, lineHeight: 18 },
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: Spacing.two,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 999,
+  },
+  ctaText: { fontSize: 13, fontWeight: '700' },
   section: { gap: Spacing.three },
   pinEmpty: { alignItems: 'center', gap: Spacing.one, paddingVertical: Spacing.four },
   pinRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },

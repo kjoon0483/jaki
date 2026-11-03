@@ -1,8 +1,11 @@
 {
-  "buildCommand": "npx expo export -p web",
+  "buildCommand": "node scripts/copy-standalone.js && npx expo export -p web",
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }

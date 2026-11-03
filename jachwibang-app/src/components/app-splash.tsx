@@ -5,9 +5,9 @@ import { Animated, StyleSheet, View } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
-const FADE_IN_MS = 900;
-const HOLD_MS = 2000;
-const FADE_OUT_MS = 900;
+const FADE_IN_MS = 500;
+const HOLD_MS = 900;
+const FADE_OUT_MS = 400;
 
 /** Full-brand splash (icon + wordmark) shown for a moment on app launch. */
 export function AppSplash() {

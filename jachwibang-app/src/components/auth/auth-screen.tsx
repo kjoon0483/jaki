@@ -30,6 +30,12 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Soft dark gray behind the logo in dark mode: a step lighter than the page so the house reads clearly. */
 const DARK_LOGO_TILE = '#3A3D3A';
 
+const FEATURES = [
+  { icon: 'cube-outline', title: '3D로 방 꾸미기', sub: '가구를 배치하고 1인칭으로 걸어 다녀요' },
+  { icon: 'wallet-outline', title: '자취 가계부', sub: '한 달 예산과 지출을 한눈에 봐요' },
+  { icon: 'people-outline', title: '자취생 커뮤니티', sub: '꾸민 방을 자랑하고 꿀팁을 나눠요' },
+] as const;
+
 function friendlyError(message: string) {
   const m = message.toLowerCase();
   if (m.includes('invalid login credentials')) return '이메일 또는 비밀번호가 올바르지 않아요.';
@@ -175,14 +181,7 @@ export function AuthScreen() {
     if (result.error) setFormError(friendlyError(result.error));
   }
 
-  const title =
-    view === 'signup-sent'
-      ? '이메일 인증'
-      : view === 'forgot-request' || view === 'forgot-sent'
-        ? '비밀번호 재설정'
-        : isSignup
-          ? '새 계정 만들기'
-          : '다시 오신 걸 환영해요';
+  const title = view === 'signup-sent' ? '이메일 인증' : '비밀번호 재설정';
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
@@ -202,9 +201,45 @@ export function AuthScreen() {
                 <Image style={styles.logo} source={require('@/assets/images/splash-logo.png')} contentFit="contain" />
               </View>
             )}
-            <Text style={[styles.title, { color: theme.text }]}>자취방 키우기</Text>
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{title}</Text>
+            {/* 밝은 모드 로고에는 이름 글자가 이미 들어 있어 두 번 쓰지 않는다. */}
+            {scheme === 'dark' ? <Text style={[styles.title, { color: theme.text }]}>자취방 키우기</Text> : null}
+            <Text style={[styles.tagline, { color: theme.textSecondary }]}>내 방은 3D로 꾸미고, 생활비는 가볍게 관리해요</Text>
           </View>
+
+          {/* 처음 온 사람이 로그인 전에 무슨 앱인지 알 수 있게, 실제 3D 방 화면과 할 수 있는 일 세 가지를 보여 준다.
+              로그인·회원가입은 카드 위 탭이 이름을 대신하므로, 나머지 화면에서만 제목을 보여 준다. */}
+          {view === 'login' || view === 'signup' ? (
+            <View style={styles.intro}>
+              <View style={[styles.hero, { backgroundColor: '#FFFFFF', borderColor: theme.border }]}>
+                <Image style={styles.heroImage} source={require('@/assets/images/hero-room.jpg')} contentFit="cover" />
+                {/* 웹에서는 로그인 없이 열리는 3D 시뮬레이터(public/sim.html)로 바로 체험해 볼 수 있다. */}
+                {Platform.OS === 'web' ? (
+                  <Pressable
+                    onPress={() => window.location.assign('/sim.html')}
+                    accessibilityRole="link"
+                    style={({ pressed }) => [styles.tryBtn, { backgroundColor: theme.accent }, pressed && styles.disabled]}>
+                    <Ionicons name="cube-outline" size={15} color={theme.onAccent} />
+                    <Text style={[styles.tryText, { color: theme.onAccent }]}>가입 없이 3D 체험해보기</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <View style={styles.features}>
+                {FEATURES.map((f) => (
+                  <View key={f.title} style={styles.featureRow}>
+                    <View style={[styles.featureIcon, { backgroundColor: theme.accentSoft }]}>
+                      <Ionicons name={f.icon} size={18} color={theme.accent} />
+                    </View>
+                    <View style={styles.featureText}>
+                      <Text style={[styles.featureTitle, { color: theme.text }]}>{f.title}</Text>
+                      <Text style={[styles.featureSub, { color: theme.textSecondary }]}>{f.sub}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : (
+            <Text style={[styles.subtitle, { color: theme.text }]}>{title}</Text>
+          )}
 
           <View style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
             {view === 'login' || view === 'signup' ? (
@@ -490,14 +525,36 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   header: { alignItems: 'center', gap: Spacing.one },
-  logoTile: { borderRadius: 24, padding: 10, marginBottom: Spacing.two },
-  logo: { width: 96, height: 84 },
+  logoTile: { borderRadius: 24, padding: 6 },
+  logo: { width: 100, height: 88 },
   logoTileDark: { paddingHorizontal: 18, paddingVertical: 14 },
   // The house fills roughly the top 64% of the logo art; the rest is the wordmark.
   logoCrop: { width: 120, height: 70, overflow: 'hidden' },
   logoLarge: { width: 120, height: 106 },
-  title: { fontSize: 22, fontWeight: '700' },
-  subtitle: { fontSize: 12.5 },
+  title: { fontSize: 24, fontWeight: '800', letterSpacing: -0.3 },
+  tagline: { fontSize: 13.5, textAlign: 'center' },
+  intro: { gap: Spacing.four },
+  hero: { borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
+  heroImage: { width: '100%', aspectRatio: 16 / 10 },
+  tryBtn: {
+    position: 'absolute',
+    bottom: Spacing.three,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  tryText: { fontSize: 13.5, fontWeight: '700' },
+  features: { gap: Spacing.three, paddingHorizontal: Spacing.two },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  featureIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  featureText: { flex: 1, gap: 1 },
+  featureTitle: { fontSize: 14, fontWeight: '700' },
+  featureSub: { fontSize: 12 },
+  subtitle: { fontSize: 15, fontWeight: '700', marginBottom: -Spacing.two },
   card: {
     borderRadius: Spacing.four,
     borderWidth: 1,

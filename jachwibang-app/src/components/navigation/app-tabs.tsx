@@ -25,7 +25,7 @@ export default function AppTabs() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="room">
-        <NativeTabs.Trigger.Label>3D 배치</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>방 꾸미기</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="cube-outline" />}
         />
