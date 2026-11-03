@@ -5152,6 +5152,28 @@
 </script>
 
 <style>
+  body.has-sel #panel { display: none; }
+  .selbar { top: calc(env(safe-area-inset-top, 0px) + 12px); left: 12px; right: auto; bottom: auto; padding: 0; justify-content: flex-start; }
+  .selbar .card { width: 380px; max-width: calc(100vw - 24px); max-height: calc(100vh - 24px - env(safe-area-inset-top, 0px));
+    overflow-y: auto; overscroll-behavior: contain; }
+  #selBack { margin: -2px 0 8px -4px; padding: 3px 8px; border-color: transparent; color: var(--muted); font-size: 12.5px; }
+</style>
+<script>
+(function () {
+  var bar = document.getElementById('selbar');
+  var back = document.createElement('button');
+  back.id = 'selBack';
+  back.type = 'button';
+  back.textContent = '← 목록';
+  back.onclick = function () { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); };
+  bar.querySelector('.card').prepend(back);
+  function sync() { document.body.classList.toggle('has-sel', !bar.hidden); }
+  new MutationObserver(sync).observe(bar, { attributes: true, attributeFilter: ['hidden'] });
+  sync();
+})();
+</script>
+
+<style>
   #joinCta { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
     display: flex; align-items: center; gap: 4px; padding: 6px 6px 6px 16px; border-radius: 999px; z-index: 30;
     background: #FFFFFF; color: #14232E; box-shadow: 0 4px 18px rgba(20, 35, 46, 0.18); font-size: 13px; white-space: nowrap;
