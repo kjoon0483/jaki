@@ -5150,5 +5150,22 @@
   tick();
 })();
 </script>
+
+<style>
+  #joinCta { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+    display: flex; align-items: center; gap: 4px; padding: 6px 6px 6px 16px; border-radius: 999px; z-index: 30;
+    background: #FFFFFF; color: #14232E; box-shadow: 0 4px 18px rgba(20, 35, 46, 0.18); font-size: 13px; white-space: nowrap;
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  #joinCta a { margin-left: 6px; padding: 8px 14px; border-radius: 999px; background: #0B6FA4; color: #FFFFFF;
+    font-weight: 700; text-decoration: none; }
+  #joinCta button { border: 0; background: none; color: #52646F; font-size: 16px; padding: 4px 8px; cursor: pointer; }
+  #selbar:not([hidden]) ~ #joinCta, body.walking #joinCta, body.dragItem #joinCta { display: none; }
+  @media (prefers-color-scheme: dark) { #joinCta { background: #18232B; color: #EAF2F7; } #joinCta a { background: #7FBCE3; color: #0B141A; } }
+</style>
+<div id="joinCta">
+  <span>마음에 드세요?</span>
+  <a href="/?signup=1">가입하고 내 방 만들기</a>
+  <button type="button" aria-label="닫기" onclick="this.parentNode.remove()">×</button>
+</div>
 </body>
 </html>

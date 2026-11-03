@@ -52,7 +52,12 @@ export function AuthScreen() {
   const scheme = useColorScheme();
   const { signIn, signUp, resendSignUpCode, requestPasswordReset } = useAuth();
 
-  const [view, setView] = useState<AuthView>('login');
+  // 3D 체험 페이지(sim.html)의 '가입하고 내 방 만들기'는 /?signup=1 로 와서 회원가입부터 연다.
+  // 이미 체험해 본 사람이라 앱 소개는 건너뛰고 입력 칸이 바로 보이게 한다.
+  const [fromTrial] = useState(
+    () => Platform.OS === 'web' && new URLSearchParams(window.location.search).get('signup') === '1'
+  );
+  const [view, setView] = useState<AuthView>(fromTrial ? 'signup' : 'login');
   const [email, setEmail] = useState('');
   const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
@@ -208,7 +213,9 @@ export function AuthScreen() {
 
           {/* 처음 온 사람이 로그인 전에 무슨 앱인지 알 수 있게, 실제 3D 방 화면과 할 수 있는 일 세 가지를 보여 준다.
               로그인·회원가입은 카드 위 탭이 이름을 대신하므로, 나머지 화면에서만 제목을 보여 준다. */}
-          {view === 'login' || view === 'signup' ? (
+          {view !== 'login' && view !== 'signup' ? (
+            <Text style={[styles.subtitle, { color: theme.text }]}>{title}</Text>
+          ) : fromTrial ? null : (
             <View style={styles.intro}>
               <View style={[styles.hero, { backgroundColor: '#FFFFFF', borderColor: theme.border }]}>
                 <Image style={styles.heroImage} source={require('@/assets/images/hero-room.jpg')} contentFit="cover" />
@@ -237,8 +244,6 @@ export function AuthScreen() {
                 ))}
               </View>
             </View>
-          ) : (
-            <Text style={[styles.subtitle, { color: theme.text }]}>{title}</Text>
           )}
 
           <View style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
