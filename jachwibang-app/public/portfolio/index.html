@@ -15,72 +15,155 @@
   --fg: #37352F;
   --muted: #787774;
   --line: #E9E9E7;
+  --hover: #F1F1EF;
   --link: #0B6FA4;
+  --btn: #0B6FA4;
+  --btn-fg: #FFFFFF;
   --code-bg: #F7F6F3;
   --code-fg: #EB5757;
-  --quote: #F1F1EF;
+  --callout: #F1F6FA;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #191919; --fg: #E3E2E0; --muted: #9B9A97; --line: #2F2F2F; --link: #6CB6E6;
-    --code-bg: #252525; --code-fg: #FF7369; --quote: #252525; color-scheme: dark;
+    --bg: #191919; --fg: #E3E2E0; --muted: #9B9A97; --line: #2F2F2F; --hover: #252525; --link: #6CB6E6;
+    --btn: #2C7FB0; --btn-fg: #FFFFFF; --code-bg: #252525; --code-fg: #FF7369; --callout: #1F262C; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #191919; --fg: #E3E2E0; --muted: #9B9A97; --line: #2F2F2F; --link: #6CB6E6;
-  --code-bg: #252525; --code-fg: #FF7369; --quote: #252525; color-scheme: dark;
+  --bg: #191919; --fg: #E3E2E0; --muted: #9B9A97; --line: #2F2F2F; --hover: #252525; --link: #6CB6E6;
+  --btn: #2C7FB0; --btn-fg: #FFFFFF; --code-bg: #252525; --code-fg: #FF7369; --callout: #1F262C; color-scheme: dark;
 }
 *, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 body { margin: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif; font-size: 16px; line-height: 1.65; word-break: keep-all; overflow-wrap: anywhere; }
-main { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 80px; }
-h1 { font-size: 2.25rem; margin: 0 0 4px; }
-h2 { font-size: 1.5rem; margin: 40px 0 8px; }
-h3 { font-size: 1.15rem; margin: 26px 0 6px; }
+main { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 96px; }
+h1 { font-size: 2.25rem; line-height: 1.25; margin: 0 0 6px; }
+h2 { font-size: 1.5rem; margin: 48px 0 10px; scroll-margin-top: 16px; }
+h3 { font-size: 1.1rem; margin: 0; }
 p { margin: 0 0 8px; }
 ul { margin: 0 0 10px; padding-left: 1.4em; }
-li { margin-bottom: 2px; }
-li ul { margin-top: 2px; margin-bottom: 4px; }
+li { margin-bottom: 3px; }
 a { color: var(--link); }
-hr { border: none; border-top: 1px solid var(--line); margin: 28px 0; }
-img { display: block; max-width: 100%; height: auto; border-radius: 3px; background: #FFFFFF; margin: 12px 0 4px; }
+a:focus-visible, summary:focus-visible, .btn:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+hr { border: none; border-top: 1px solid var(--line); margin: 32px 0; }
+.sub { color: var(--muted); font-size: 1.0625rem; margin-bottom: 18px; }
 .small { color: var(--muted); font-size: 0.875rem; }
+
+/* 버튼 */
+.btns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line); color: var(--fg); text-decoration: none; font-size: 0.9375rem; font-weight: 600; }
+.btn:hover { background: var(--hover); }
+.btn.main { background: var(--btn); border-color: var(--btn); color: var(--btn-fg); }
+.btn.main:hover { filter: brightness(1.1); background: var(--btn); }
+
+/* 노션 속성 목록 */
+.props { margin: 0 0 8px; font-size: 0.9375rem; }
+.props div { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 5px 0; }
+.props dt { color: var(--muted); }
+.props dd { margin: 0; min-width: 0; }
+
+/* 이미지 */
+.shot { display: block; margin: 0; }
+.shot img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; background: #FFFFFF; }
+.shot a:hover img { border-color: var(--link); }
+.shot figcaption { color: var(--muted); font-size: 0.8125rem; margin-top: 6px; }
+.gallery { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; margin: 16px 0 8px; align-items: start; }
+
+/* 목차 */
+.toc { list-style: none; padding: 0; margin: 0; font-size: 0.9375rem; }
+.toc li { margin: 0; }
+.toc a { display: block; padding: 4px 6px; border-radius: 4px; color: var(--muted); text-decoration: none; }
+.toc a:hover { background: var(--hover); color: var(--fg); }
+
+.callout { display: flex; gap: 10px; background: var(--callout); padding: 14px 16px; border-radius: 6px; margin: 8px 0 14px; }
+.callout p:last-child { margin: 0; }
+
 code { font-family: SFMono-Regular, Consolas, monospace; font-size: 0.85em; background: var(--code-bg); color: var(--code-fg); padding: 1px 4px; border-radius: 3px; }
-pre { font-family: SFMono-Regular, Consolas, monospace; font-size: 0.8125rem; line-height: 1.55; background: var(--code-bg); padding: 14px 16px; border-radius: 3px; overflow-x: auto; margin: 4px 0 12px; }
+pre { font-family: SFMono-Regular, Consolas, monospace; font-size: 0.8125rem; line-height: 1.55; background: var(--code-bg); padding: 14px 16px; border-radius: 4px; overflow-x: auto; margin: 4px 0 12px; }
 pre code { background: none; color: var(--fg); padding: 0; font-size: inherit; }
-blockquote { margin: 8px 0 12px; padding: 2px 14px; border-left: 3px solid var(--fg); }
-.callout { background: var(--quote); padding: 12px 14px; border-radius: 3px; margin: 8px 0 12px; }
-table { border-collapse: collapse; font-size: 0.9375rem; margin: 6px 0 12px; }
-th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+
+table { border-collapse: collapse; font-size: 0.9375rem; margin: 6px 0 12px; width: 100%; }
+th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
 th { font-weight: 600; background: var(--code-bg); }
+td:first-child { white-space: nowrap; }
 .tbl { overflow-x: auto; }
+
+/* 토글 (트러블슈팅) */
+details { border-bottom: 1px solid var(--line); }
+details:first-of-type { border-top: 1px solid var(--line); }
+summary { list-style: none; cursor: pointer; display: flex; gap: 10px; align-items: baseline; padding: 14px 4px; border-radius: 4px; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "▶"; font-size: 0.7rem; color: var(--muted); transition: transform .15s; flex: none; }
+details[open] > summary::before { transform: rotate(90deg); }
+summary:hover { background: var(--hover); }
+summary .one { display: block; color: var(--muted); font-size: 0.875rem; font-weight: 400; margin-top: 2px; }
+.body { padding: 0 4px 18px 22px; }
+.body b { display: block; margin-top: 10px; }
+.toggle-all { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 4px; padding: 4px 10px; font-size: 0.8125rem; cursor: pointer; margin-bottom: 8px; }
+.toggle-all:hover { background: var(--hover); color: var(--fg); }
+
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 0.875rem; }
+footer a { color: var(--muted); }
+
+@media (max-width: 600px) {
+  h1 { font-size: 1.875rem; }
+  .gallery { grid-template-columns: 1fr; }
+  .gallery .shot + .shot { display: none; }
+  .btn { flex: 1 1 auto; justify-content: center; }
+}
 </style>
 <style>img{max-width:100%}</style>
 </head>
 <body>
 <main>
   <h1>자취방 키우기 🏠</h1>
-  <p class="small">2026.09.15 ~ 2026.11.03 · 7팀 (팀 프로젝트) · 앱 개발 담당</p>
-  <p><a href="https://github.com/kjoon0483/jaki" target="_blank" rel="noopener">GitHub</a> · <a href="https://jaki-rust.vercel.app" target="_blank" rel="noopener">웹에서 써보기</a> · <a href="https://jaki-rust.vercel.app/sim.html" target="_blank" rel="noopener">3D만 바로 써보기 (가입 X)</a></p>
+  <p class="sub">자취생용 가계부 + 3D 방 꾸미기 + 커뮤니티 앱</p>
 
-  <img src="hero-room.jpg" alt="3D 배치 탭에서 꾸민 원룸 화면" width="1440" height="1160">
-  <p class="small">3D 배치 화면</p>
+  <div class="btns">
+    <a class="btn main" href="https://jaki-rust.vercel.app/sim.html" target="_blank" rel="noopener">3D 바로 해보기 (가입 X) ↗</a>
+    <a class="btn" href="https://jaki-rust.vercel.app" target="_blank" rel="noopener">웹 앱 ↗</a>
+    <a class="btn" href="https://github.com/kjoon0483/jaki" target="_blank" rel="noopener">GitHub ↗</a>
+  </div>
+
+  <dl class="props">
+    <div><dt>기간</dt><dd>2026.09.15 ~ 2026.11.03 (7주)</dd></div>
+    <div><dt>팀</dt><dd>7팀 (팀 프로젝트)</dd></div>
+    <div><dt>역할</dt><dd>앱 개발 담당, 3D 시뮬레이터 공동 개발</dd></div>
+    <div><dt>기술</dt><dd>React Native (Expo), TypeScript, Supabase, three.js, Vercel</dd></div>
+  </dl>
+
+  <div class="gallery">
+    <figure class="shot">
+      <a href="https://jaki-rust.vercel.app/sim.html" target="_blank" rel="noopener"><img src="sim.png" alt="3D 체험 페이지 화면. 왼쪽에 가구 추가·도구 메뉴, 가운데 3D 원룸" width="1280" height="800"></a>
+      <figcaption>3D 체험 페이지 (누르면 바로 열림)</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="hero-room.jpg" alt="3D 배치 탭에서 꾸민 원룸" width="1440" height="1160" loading="lazy">
+      <figcaption>꾸민 방 예시 · 3.6 × 6m 원룸</figcaption>
+    </figure>
+  </div>
 
   <hr>
 
-  <h2>프로젝트 소개</h2>
-  <p>자취생용 가계부 + 3D 방 꾸미기 + 커뮤니티 앱</p>
-  <ul>
-    <li>가계부: 수입/지출 기록, 달력·내역·분석 탭, 월 예산</li>
-    <li>3D 배치: 원룸에 가구 배치, 1인칭으로 방 안 돌아다니기 (앉기, 눕기, 커튼·냉장고 문 열기 등)</li>
-    <li>커뮤니티: 게시글/댓글/좋아요, 내가 꾸민 방 공유, 신고·차단</li>
-    <li>마이페이지: 닉네임·비번 변경, 다크모드, 회원탈퇴</li>
+  <ul class="toc">
+    <li><a href="#intro">프로젝트 소개</a></li>
+    <li><a href="#stack">기술 스택</a></li>
+    <li><a href="#role">담당한 부분</a></li>
+    <li><a href="#trouble">트러블슈팅</a></li>
+    <li><a href="#retro">회고</a></li>
   </ul>
-  <img src="sim.png" alt="3D 체험 페이지 화면. 왼쪽에 가구 추가·도구 메뉴, 가운데 3D 원룸, 아래에 가입 안내 막대" width="1280" height="800">
-  <p class="small">가입 없이 열리는 3D 체험 페이지 (PC 화면). 기본 방 크기 3.6 × 6m, 약 6.5평</p>
 
+  <h2 id="intro">프로젝트 소개</h2>
+  <ul>
+    <li><b>가계부</b>: 수입/지출 기록, 달력·내역·분석 탭, 월 예산</li>
+    <li><b>3D 배치</b>: 원룸에 가구 배치, 1인칭으로 방 안 돌아다니기 (앉기, 눕기, 커튼·냉장고 문 열기 등)</li>
+    <li><b>커뮤니티</b>: 게시글/댓글/좋아요, 내가 꾸민 방 공유, 신고·차단</li>
+    <li><b>마이페이지</b>: 닉네임·비번 변경, 다크모드, 회원탈퇴</li>
+  </ul>
   <p>앱 쪽(화면, DB, 연동, 배포)은 제가 맡았고, 3D 시뮬레이터는 팀원과 같이 만들었습니다.</p>
 
-  <h2>기술 스택</h2>
+  <h2 id="stack">기술 스택</h2>
   <div class="tbl">
   <table>
     <tr><th>구분</th><th>사용</th></tr>
@@ -92,7 +175,7 @@ th { font-weight: 600; background: var(--code-bg); }
   </div>
   <p>코드 하나로 iOS·안드로이드·웹을 같이 만들 수 있어서 Expo 선택. 개발 중에는 웹 배포본을 휴대폰 브라우저로 열어서 테스트했습니다.</p>
 
-  <h2>담당한 부분</h2>
+  <h2 id="role">담당한 부분</h2>
   <ul>
     <li>앱 전체 화면 구현 (홈, 가계부, 3D, 커뮤니티, 마이 탭)</li>
     <li>Supabase 테이블 설계, RLS 정책, SQL 마이그레이션 작성 (002~007)</li>
@@ -101,27 +184,32 @@ th { font-weight: 600; background: var(--code-bg); }
     <li>Vercel 배포, 모바일 브라우저 대응</li>
   </ul>
 
-  <hr>
+  <h2 id="trouble">트러블슈팅</h2>
+  <button class="toggle-all" type="button" id="toggle-all">모두 펼치기</button>
 
-  <h2>트러블슈팅</h2>
-
-  <h3>1. 좋아요 수를 API로 직접 수정할 수 있었던 문제</h3>
-  <p><b>상황</b></p>
-  <p>RLS를 "본인 글은 수정 가능"으로만 설정해 둠 → 본인 글이면 <code>likes_count</code> 컬럼도 수정 가능한 상태였음. 앱 UI에는 그런 기능이 없어도 API 요청을 직접 보내면 9999로 바꿀 수 있음.</p>
-  <p><b>해결</b></p>
-  <p>컬럼 단위로 권한을 다시 줌. 좋아요 수는 트리거에서만 바뀌게.</p>
+  <details>
+    <summary><div><h3>1. 좋아요 수를 API로 직접 수정할 수 있었던 문제</h3><span class="one">RLS를 컬럼 단위 권한으로 다시 설정</span></div></summary>
+    <div class="body">
+      <b>상황</b>
+      <p>RLS를 "본인 글은 수정 가능"으로만 설정해 둠 → 본인 글이면 <code>likes_count</code> 컬럼도 수정 가능한 상태였음. 앱 UI에는 그런 기능이 없어도 API 요청을 직접 보내면 9999로 바꿀 수 있음.</p>
+      <b>해결</b>
+      <p>컬럼 단위로 권한을 다시 줌. 좋아요 수는 트리거에서만 바뀌게.</p>
 <pre><code>revoke insert, update on public.community_posts from anon, authenticated;
 
 grant update (body, topic, placed, room, room_name)
   on public.community_posts to authenticated;
 -- likes_count 빠짐 -&gt; 좋아요 트리거만 수정 가능</code></pre>
+    </div>
+  </details>
 
-  <h3>2. 커뮤니티 탭 흰 화면 (모바일에서만)</h3>
-  <p><b>상황</b></p>
-  <p>배포 후 폰으로 커뮤니티 탭 들어가면 화면이 하얗게 멈춤. <code>tsc</code>는 통과했던 코드.</p>
-  <p>콘솔: <code>Cannot read properties of null (reading 'author')</code></p>
-  <p><b>원인</b></p>
-  <p>React Compiler가 켜져 있었는데, 삼항연산자 안에 있던 <code>safetyUser!.author</code>를 조건 밖에서 먼저 계산함. 신고 메뉴가 닫혀 있으면 <code>safetyUser</code>가 null이라 에러.</p>
+  <details>
+    <summary><div><h3>2. 커뮤니티 탭 흰 화면 (모바일에서만)</h3><span class="one">React Compiler + non-null assertion(!) 조합 문제</span></div></summary>
+    <div class="body">
+      <b>상황</b>
+      <p>배포 후 폰으로 커뮤니티 탭 들어가면 화면이 하얗게 멈춤. <code>tsc</code>는 통과했던 코드.</p>
+      <p>콘솔: <code>Cannot read properties of null (reading 'author')</code></p>
+      <b>원인</b>
+      <p>React Compiler가 켜져 있었는데, 삼항연산자 안에 있던 <code>safetyUser!.author</code>를 조건 밖에서 먼저 계산함. 신고 메뉴가 닫혀 있으면 <code>safetyUser</code>가 null이라 에러.</p>
 <pre><code>// before
 target={safety ? { kind: ..., author: safetyUser!.author } : null}
 
@@ -129,25 +217,54 @@ target={safety ? { kind: ..., author: safetyUser!.author } : null}
 const safetyTarget = safety &amp;&amp; safetyUser
   ? { kind: ..., author: safetyUser.author }
   : null;</code></pre>
-  <p>이후로 JSX props 안에서는 <code>!</code> 안 쓰기로 함. 배포 전에 모바일 화면에서 한번씩 띄워보는 것도 추가.</p>
+      <p>이후로 JSX props 안에서는 <code>!</code> 안 쓰기로 함. 배포 전에 모바일 화면에서 한번씩 띄워보는 것도 추가.</p>
+    </div>
+  </details>
 
-  <h3>3. 3D 파일 업데이트할 때마다 연동 코드 다시 붙이던 문제</h3>
-  <p>시뮬레이터가 HTML 파일 하나(약 5100줄)라 새 버전이 나올 때마다 저장/불러오기, 조이스틱 같은 코드를 손으로 다시 넣어야 했음. 몇 번 빠뜨려서 저장이 안 되는 일이 생김.</p>
-  <p>→ 원본에 연동 코드를 자동으로 끼워넣는 node 스크립트 작성 (<code>npm run embed:simulator</code>). 끼울 위치를 못 찾으면 에러 내고 멈추게 함.</p>
+  <details>
+    <summary><div><h3>3. 3D 파일 업데이트할 때마다 연동 코드 다시 붙이던 문제</h3><span class="one">연동 코드를 자동으로 끼워넣는 스크립트 작성</span></div></summary>
+    <div class="body">
+      <p>시뮬레이터가 HTML 파일 하나(약 5100줄)라 새 버전이 나올 때마다 저장/불러오기, 조이스틱 같은 코드를 손으로 다시 넣어야 했음. 몇 번 빠뜨려서 저장이 안 되는 일이 생김.</p>
+      <p>→ 원본에 연동 코드를 자동으로 끼워넣는 node 스크립트 작성 (<code>npm run embed:simulator</code>). 끼울 위치를 못 찾으면 에러 내고 멈추게 함.</p>
+    </div>
+  </details>
 
-  <h3>4. 커뮤니티 미리보기 때문에 폰 브라우저가 꺼짐</h3>
-  <p>글마다 3D 뷰어를 띄웠더니 폰에서 메모리 부족으로 탭이 죽음. 방 공유할 때 3D 화면을 숨겨서 잠깐 띄우고 스크린샷만 저장하는 방식으로 변경.</p>
+  <details>
+    <summary><div><h3>4. 커뮤니티 미리보기 때문에 폰 브라우저가 꺼짐</h3><span class="one">3D 뷰어 대신 공유할 때 찍은 스크린샷 사용</span></div></summary>
+    <div class="body">
+      <p>글마다 3D 뷰어를 띄웠더니 폰에서 메모리 부족으로 탭이 죽음. 방 공유할 때 3D 화면을 숨겨서 잠깐 띄우고 스크린샷만 저장하는 방식으로 변경.</p>
+    </div>
+  </details>
 
-  <hr>
-
-  <h2>회고</h2>
+  <h2 id="retro">회고</h2>
   <ul>
     <li>테스트 코드를 못 짰음. 지금은 직접 눌러보는 걸로 확인 중</li>
     <li>오래된 폰에서는 3D가 아직 느림</li>
     <li>앱스토어 출시까지는 못 하고 웹 배포만 함</li>
     <li>DB 보안은 처음에 대충 했다가 나중에 다시 고쳤는데, 처음부터 컬럼 권한까지 생각했으면 좋았을 것 같음</li>
   </ul>
+
+  <footer>
+    <span>자취방 키우기 · 7팀</span>
+    <a href="#">맨 위로 ↑</a>
+  </footer>
 </main>
 
+<script>
+  (function () {
+    var btn = document.getElementById("toggle-all");
+    var items = document.querySelectorAll("details");
+    function sync() {
+      var allOpen = Array.prototype.every.call(items, function (d) { return d.open; });
+      btn.textContent = allOpen ? "모두 접기" : "모두 펼치기";
+    }
+    btn.addEventListener("click", function () {
+      var allOpen = Array.prototype.every.call(items, function (d) { return d.open; });
+      items.forEach(function (d) { d.open = !allOpen; });
+      sync();
+    });
+    items.forEach(function (d) { d.addEventListener("toggle", sync); });
+  })();
+</script>
 </body>
 </html>
