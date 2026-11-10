@@ -69,6 +69,8 @@ hr { border: none; border-top: 1px solid var(--line); margin: 32px 0; }
 .shot a:hover img { border-color: var(--link); }
 .shot figcaption { color: var(--muted); font-size: 0.8125rem; margin-top: 6px; }
 .gallery { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; margin: 16px 0 8px; align-items: start; }
+.phones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0 4px; }
+.phones img { border-radius: 10px; }
 
 /* 목차 */
 .toc { list-style: none; padding: 0; margin: 0; font-size: 0.9375rem; }
@@ -110,6 +112,8 @@ footer a { color: var(--muted); }
   h1 { font-size: 1.875rem; }
   .gallery { grid-template-columns: 1fr; }
   .gallery .shot + .shot { display: none; }
+  .phones { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; margin-right: -16px; padding-right: 16px; }
+  .phones .shot { flex: 0 0 62%; scroll-snap-align: start; }
   .btn { flex: 1 1 auto; justify-content: center; }
 }
 </style>
@@ -183,6 +187,22 @@ footer a { color: var(--muted); }
     <li>3D 시뮬레이터 ↔ 앱 연동 (방 저장/불러오기, 보기 전용 모드, 미리보기 이미지)</li>
     <li>Vercel 배포, 모바일 브라우저 대응</li>
   </ul>
+
+  <div class="phones">
+    <figure class="shot">
+      <img src="app-home.png" alt="홈 화면. 이번 달 지출, 예산 대비 사용률, 지난달 비교, 최근 기록" width="780" height="1688" loading="lazy">
+      <figcaption>홈</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="app-budget.png" alt="가계부 달력 탭. 월 수입·지출 합계와 날짜별 금액" width="780" height="1688" loading="lazy">
+      <figcaption>가계부 (달력)</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="app-community.png" alt="커뮤니티 화면. 공유한 방 미리보기가 달린 게시글" width="780" height="1688" loading="lazy">
+      <figcaption>커뮤니티 (방 공유 글)</figcaption>
+    </figure>
+  </div>
+  <p class="small">휴대폰 화면 기준 · 예시 데이터로 찍은 화면</p>
 
   <h2 id="trouble">트러블슈팅</h2>
   <button class="toggle-all" type="button" id="toggle-all">모두 펼치기</button>
