@@ -51,7 +51,8 @@ hr { border: none; border-top: 1px solid var(--line); margin: 32px 0; }
 .small { color: var(--muted); font-size: 0.875rem; }
 
 /* 버튼 */
-.btns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.btn-note { margin-bottom: 24px; }
 .btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line); color: var(--fg); text-decoration: none; font-size: 0.9375rem; font-weight: 600; }
 .btn:hover { background: var(--hover); }
 .btn.main { background: var(--btn); border-color: var(--btn); color: var(--btn-fg); }
@@ -139,6 +140,7 @@ img { max-width: 100%; }
     <a class="btn" href="https://jaki-rust.vercel.app" target="_blank" rel="noopener">웹 앱 ↗</a>
     <a class="btn" href="https://github.com/kjoon0483/jaki" target="_blank" rel="noopener">GitHub ↗</a>
   </div>
+  <p class="small btn-note">웹 앱은 회원가입 필요 · 가입 없이는 3D 체험만 가능</p>
 
   <dl class="props">
     <div><dt>기간</dt><dd>2026.09.15 ~ 2026.11.03 (7주)</dd></div>
