@@ -43,7 +43,8 @@
     "lint": "expo lint",
     "build:simulator": "node ./scripts/build-simulator.js",
     "embed:simulator": "node ./scripts/embed-simulator.js",
-    "copy:standalone": "node ./scripts/copy-standalone.js"
+    "copy:standalone": "node ./scripts/copy-standalone.js",
+    "test": "node --no-warnings --test \"tests/*.test.mjs\""
   },
   "private": true
 }
