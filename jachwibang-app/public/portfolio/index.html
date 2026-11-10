@@ -128,6 +128,22 @@ footer a { color: var(--muted); }
   .btn { flex: 1 1 auto; justify-content: center; }
 }
 img { max-width: 100%; }
+
+/* 인쇄·PDF: 목차·토글 버튼 숨기고, 링크 주소를 보이게, 블록이 페이지에서 잘리지 않게 */
+@media print {
+  @page { size: A4; margin: 12mm 10mm; }
+  main { max-width: none; padding-block: 0; }
+  .toc, .toggle-all, footer a, summary::before { display: none; }
+  .btn::after { content: attr(href); font-size: 0.7rem; font-weight: 400; color: var(--muted); }
+  .btn.main::after { color: inherit; }
+  summary { display: block; cursor: auto; padding: 14px 0 6px; }
+  .body { padding: 0 0 14px 16px; }
+  h2, h3, summary, .body b { break-after: avoid; }
+  figure, pre, table, .arch, .phones, .callout { break-inside: avoid; }
+  .phones { display: grid; grid-template-columns: repeat(3, 128px); gap: 16px; overflow: visible; margin-right: 0; padding-right: 0; }
+  .arch svg { max-width: 360px; }
+  .body p:has(+ pre), .body b + p { break-after: avoid; }
+}
 </style>
 </head>
 <body>
@@ -346,6 +362,8 @@ function captureThumb() {
       sync();
     });
     items.forEach(function (d) { d.addEventListener("toggle", sync); });
+    // 인쇄·PDF로 저장할 때는 트러블슈팅을 모두 펼친 상태로
+    window.addEventListener("beforeprint", function () { items.forEach(function (d) { d.open = true; }); });
   })();
 </script>
 </body>
