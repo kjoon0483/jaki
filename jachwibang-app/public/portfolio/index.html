@@ -71,6 +71,15 @@ hr { border: none; border-top: 1px solid var(--line); margin: 32px 0; }
 .gallery { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; margin: 16px 0 8px; align-items: start; }
 .phones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0 4px; }
 .phones img { border-radius: 10px; }
+.arch { margin: 16px 0 8px; }
+.arch svg { display: block; width: 100%; max-width: 400px; height: auto; font-family: inherit; }
+.arch .box { fill: var(--bg); stroke: var(--line); stroke-width: 1.5; }
+.arch .box.main { fill: var(--callout); stroke: var(--link); }
+.arch .t { fill: var(--fg); font-size: 14px; font-weight: 600; text-anchor: middle; }
+.arch .s { fill: var(--muted); font-size: 11.5px; text-anchor: middle; }
+.arch .s.l { text-anchor: start; }
+.arch .ln { stroke: var(--muted); stroke-width: 1.5; }
+.arch .ah { fill: var(--muted); }
 
 /* 목차 */
 .toc { list-style: none; padding: 0; margin: 0; font-size: 0.9375rem; }
@@ -94,12 +103,13 @@ td:first-child { white-space: nowrap; }
 /* 토글 (트러블슈팅) */
 details { border-bottom: 1px solid var(--line); }
 details:first-of-type { border-top: 1px solid var(--line); }
-summary { list-style: none; cursor: pointer; display: flex; gap: 10px; align-items: baseline; padding: 14px 4px; border-radius: 4px; }
+summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: baseline; padding: 14px 4px; border-radius: 4px; }
+summary h3 { grid-column: 2; grid-row: 1; }
 summary::-webkit-details-marker { display: none; }
-summary::before { content: "▶"; font-size: 0.7rem; color: var(--muted); transition: transform .15s; flex: none; }
+summary::before { grid-column: 1; grid-row: 1; content: "▶"; font-size: 0.7rem; color: var(--muted); transition: transform .15s; flex: none; }
 details[open] > summary::before { transform: rotate(90deg); }
 summary:hover { background: var(--hover); }
-summary .one { display: block; color: var(--muted); font-size: 0.875rem; font-weight: 400; margin-top: 2px; }
+summary .one { grid-column: 2; display: block; color: var(--muted); font-size: 0.875rem; font-weight: 400; margin-top: 2px; }
 .body { padding: 0 4px 18px 22px; }
 .body b { display: block; margin-top: 10px; }
 .toggle-all { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 4px; padding: 4px 10px; font-size: 0.8125rem; cursor: pointer; margin-bottom: 8px; }
@@ -116,8 +126,8 @@ footer a { color: var(--muted); }
   .phones .shot { flex: 0 0 62%; scroll-snap-align: start; }
   .btn { flex: 1 1 auto; justify-content: center; }
 }
+img { max-width: 100%; }
 </style>
-<style>img{max-width:100%}</style>
 </head>
 <body>
 <main>
@@ -179,6 +189,35 @@ footer a { color: var(--muted); }
   </div>
   <p>코드 하나로 iOS·안드로이드·웹을 같이 만들 수 있어서 Expo 선택. 개발 중에는 웹 배포본을 휴대폰 브라우저로 열어서 테스트했습니다.</p>
 
+  <figure class="arch">
+    <svg viewBox="0 0 360 330" role="img" aria-labelledby="arch-t">
+      <title id="arch-t">구조: 3D 시뮬레이터와 앱은 postMessage로, 앱과 Supabase는 supabase-js로 통신</title>
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+      </defs>
+      <rect class="box" x="40" y="8" width="280" height="64" rx="6"/>
+      <text class="t" x="180" y="34">3D 시뮬레이터 (three.js, HTML 1개)</text>
+      <text class="s" x="180" y="56">폰: WebView · 웹: iframe</text>
+
+      <line class="ln" x1="180" y1="76" x2="180" y2="124" marker-start="url(#ah)" marker-end="url(#ah)"/>
+      <text class="s l" x="192" y="98">postMessage</text>
+      <text class="s l" x="192" y="114">방 저장·불러오기·사진</text>
+
+      <rect class="box main" x="40" y="128" width="280" height="74" rx="6"/>
+      <text class="t" x="180" y="156">앱 (Expo · React Native)</text>
+      <text class="s" x="180" y="178">가계부 · 3D 배치 · 커뮤니티 · 마이</text>
+      <text class="s" x="180" y="194">iOS / Android / 웹 (Vercel)</text>
+
+      <line class="ln" x1="180" y1="206" x2="180" y2="254" marker-start="url(#ah)" marker-end="url(#ah)"/>
+      <text class="s l" x="192" y="228">supabase-js</text>
+      <text class="s l" x="192" y="244">RLS로 내 데이터만 접근</text>
+
+      <rect class="box" x="40" y="258" width="280" height="64" rx="6"/>
+      <text class="t" x="180" y="284">Supabase</text>
+      <text class="s" x="180" y="306">Auth · PostgreSQL (가계부, 방, 게시글, 신고)</text>
+    </svg>
+  </figure>
+
   <h2 id="role">담당한 부분</h2>
   <ul>
     <li>앱 전체 화면 구현 (홈, 가계부, 3D, 커뮤니티, 마이 탭)</li>
@@ -208,7 +247,7 @@ footer a { color: var(--muted); }
   <button class="toggle-all" type="button" id="toggle-all">모두 펼치기</button>
 
   <details>
-    <summary><div><h3>1. 좋아요 수를 API로 직접 수정할 수 있었던 문제</h3><span class="one">RLS를 컬럼 단위 권한으로 다시 설정</span></div></summary>
+    <summary><h3>1. 좋아요 수를 API로 직접 수정할 수 있었던 문제</h3><span class="one">RLS를 컬럼 단위 권한으로 다시 설정</span></summary>
     <div class="body">
       <b>상황</b>
       <p>RLS를 "본인 글은 수정 가능"으로만 설정해 둠 → 본인 글이면 <code>likes_count</code> 컬럼도 수정 가능한 상태였음. 앱 UI에는 그런 기능이 없어도 API 요청을 직접 보내면 9999로 바꿀 수 있음.</p>
@@ -223,7 +262,7 @@ grant update (body, topic, placed, room, room_name)
   </details>
 
   <details>
-    <summary><div><h3>2. 커뮤니티 탭 흰 화면 (모바일에서만)</h3><span class="one">React Compiler + non-null assertion(!) 조합 문제</span></div></summary>
+    <summary><h3>2. 커뮤니티 탭 흰 화면 (모바일에서만)</h3><span class="one">React Compiler + non-null assertion(!) 조합 문제</span></summary>
     <div class="body">
       <b>상황</b>
       <p>배포 후 폰으로 커뮤니티 탭 들어가면 화면이 하얗게 멈춤. <code>tsc</code>는 통과했던 코드.</p>
@@ -242,23 +281,44 @@ const safetyTarget = safety &amp;&amp; safetyUser
   </details>
 
   <details>
-    <summary><div><h3>3. 3D 파일 업데이트할 때마다 연동 코드 다시 붙이던 문제</h3><span class="one">연동 코드를 자동으로 끼워넣는 스크립트 작성</span></div></summary>
+    <summary><h3>3. 3D 파일 업데이트할 때마다 연동 코드 다시 붙이던 문제</h3><span class="one">연동 코드를 자동으로 끼워넣는 스크립트 작성</span></summary>
     <div class="body">
       <p>시뮬레이터가 HTML 파일 하나(약 5100줄)라 새 버전이 나올 때마다 저장/불러오기, 조이스틱 같은 코드를 손으로 다시 넣어야 했음. 몇 번 빠뜨려서 저장이 안 되는 일이 생김.</p>
       <p>→ 원본에 연동 코드를 자동으로 끼워넣는 node 스크립트 작성 (<code>npm run embed:simulator</code>). 끼울 위치를 못 찾으면 에러 내고 멈추게 함.</p>
+<pre><code>// scripts/embed-simulator.js
+function rep(a, b, all) {
+  const n = s.split(a).length - 1;
+  // 고칠 자리가 정확히 1곳이 아니면 (팀원이 그 부분을 바꿨으면) 바로 멈춤
+  if (all ? n &lt; 1 : n !== 1)
+    throw new Error(`expected 1 match, got ${n}: ${a.slice(0, 80)}`);
+  s = all ? s.split(a).join(b) : s.replace(a, () =&gt; b);
+}</code></pre>
+      <p>새 버전을 받으면 스크립트만 돌리면 되고, 조용히 빠지는 대신 어느 줄이 바뀌었는지 에러로 바로 보임.</p>
     </div>
   </details>
 
   <details>
-    <summary><div><h3>4. 커뮤니티 미리보기 때문에 폰 브라우저가 꺼짐</h3><span class="one">3D 뷰어 대신 공유할 때 찍은 스크린샷 사용</span></div></summary>
+    <summary><h3>4. 커뮤니티 미리보기 때문에 폰 브라우저가 꺼짐</h3><span class="one">3D 뷰어 대신 공유할 때 찍은 스크린샷 사용</span></summary>
     <div class="body">
-      <p>글마다 3D 뷰어를 띄웠더니 폰에서 메모리 부족으로 탭이 죽음. 방 공유할 때 3D 화면을 숨겨서 잠깐 띄우고 스크린샷만 저장하는 방식으로 변경.</p>
+      <b>상황</b>
+      <p>글마다 3D 뷰어를 띄웠더니 폰에서 메모리 부족으로 탭이 죽고 커뮤니티 탭이 새로고침됨. 3D 페이지 하나가 도시·강 배경까지 그려서 무거움.</p>
+      <b>해결</b>
+      <p>방을 저장·공유할 때 시뮬레이터 안에서 640×800 JPEG 한 장을 찍어 방 데이터에 같이 저장. 피드에는 사진만 보여주고, 눌렀을 때만 3D를 띄움.</p>
+<pre><code>// 시뮬레이터 쪽: 앱이 serialize 요청에 thumb: true를 보내면 사진도 같이 돌려줌
+function captureThumb() {
+  renderer.setSize(640, 800, false);
+  camera.aspect = 640 / 800; camera.updateProjectionMatrix();
+  renderer.render(scene, camera);
+  return out.toDataURL('image/jpeg', 0.8);   // 약 40KB
+  // finally에서 카메라·크기 원래대로
+}</code></pre>
+      <p>사진 기능 전에 공유된 예전 글은 숨겨진 3D 화면 하나로 한 장씩 순서대로 찍고, 할 일이 없으면 3D 화면 자체를 없앰. 찍은 사진은 기기에 저장해서 다음부터는 바로 보임.</p>
     </div>
   </details>
 
   <h2 id="retro">회고</h2>
   <ul>
-    <li>테스트 코드를 못 짰음. 지금은 직접 눌러보는 걸로 확인 중</li>
+    <li>개발 기간에는 테스트 코드를 못 짰음. 끝나고 가계부 합계·금액 입력·날짜 계산부터 테스트 추가 (<code>npm test</code>, Node 내장 테스트 러너). 화면 쪽은 아직 직접 눌러보는 걸로 확인 중</li>
     <li>오래된 폰에서는 3D가 아직 느림</li>
     <li>앱스토어 출시까지는 못 하고 웹 배포만 함</li>
     <li>DB 보안은 처음에 대충 했다가 나중에 다시 고쳤는데, 처음부터 컬럼 권한까지 생각했으면 좋았을 것 같음</li>
